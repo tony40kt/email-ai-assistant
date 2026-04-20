@@ -90,6 +90,7 @@
 
 - ✅ 需求盤點完成
 - ✅ README 與 Issue/Workflow 設計完成
+- ✅ `src/mail-sync.js` 已提供郵件欄位模型轉換、分頁/增量同步與重試錯誤流程
 - ⏳ 下一步：依 `docs/ISSUES_DESIGN.md` 逐張開 Issue 並開始開發
 
 ## 9. 授權
