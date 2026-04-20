@@ -21,6 +21,7 @@ jobs:
       STATUS_FIELD_NAME: Status
       IN_PROGRESS_OPTION_NAME: In Progress
       COPILOT_BRANCH_PREFIX: copilot/
+      AUTO_IMPLEMENT_LABEL: auto:implement
     steps:
       - name: Conditionally assign Copilot and sync linked issue status
         uses: actions/github-script@v8
@@ -33,6 +34,7 @@ jobs:
             const statusFieldName = (process.env.STATUS_FIELD_NAME || "Status").trim().toLowerCase();
             const inProgressOptionName = (process.env.IN_PROGRESS_OPTION_NAME || "In Progress").trim().toLowerCase();
             const copilotBranchPrefix = process.env.COPILOT_BRANCH_PREFIX || "copilot/";
+            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
 
             const query = `
               query($owner: String!, $repo: String!, $prNumber: Int!) {
@@ -85,7 +87,7 @@ jobs:
             const data = await github.graphql(query, { owner, repo, prNumber });
             const linkedIssues = data?.repository?.pullRequest?.closingIssuesReferences?.nodes || [];
             const hasAutoImplementIssue = linkedIssues.some((issue) =>
-              (issue.labels?.nodes || []).some((label) => label.name === "auto:implement")
+              (issue.labels?.nodes || []).some((label) => label.name === autoImplementLabel)
             );
             const shouldAssignCopilot = headRef.startsWith(copilotBranchPrefix) || hasAutoImplementIssue;
 

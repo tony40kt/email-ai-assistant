@@ -23,6 +23,8 @@ jobs:
   issue-auto-implement:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
+    env:
+      AUTO_IMPLEMENT_LABEL: auto:implement
     steps:
       - name: Route auto:implement issue to Copilot safely
         uses: actions/github-script@v8
@@ -34,6 +36,7 @@ jobs:
             const issue_number = issue.number;
             const actorLogin = context.payload.sender?.login || "";
             const actor = actorLogin.toLowerCase();
+            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
             const labels = (issue.labels || []).map((l) => l.name);
 
             if (issue.state !== "open") {
@@ -41,8 +44,8 @@ jobs:
               return;
             }
 
-            if (!labels.includes("auto:implement")) {
-              core.info(`Issue #${issue_number} does not have auto:implement. Skipping.`);
+            if (!labels.includes(autoImplementLabel)) {
+              core.info(`Issue #${issue_number} does not have ${autoImplementLabel}. Skipping.`);
               return;
             }
 
@@ -64,7 +67,7 @@ jobs:
             }
 
             if (!trusted) {
-              core.warning(`Actor ${actorLogin} is not trusted. Skipping automation for issue #${issue_number}.`);
+              core.warning(`Actor ${actorLogin} is not trusted (requires admin/maintain/write or trusted automation actor). Skipping automation for issue #${issue_number}.`);
               return;
             }
 
@@ -112,6 +115,8 @@ Copilot auto-implement is enabled / 已啟用：
   backfill-auto-implement:
     if: github.event_name == 'workflow_dispatch' && inputs.backfill == true
     runs-on: ubuntu-latest
+    env:
+      AUTO_IMPLEMENT_LABEL: auto:implement
     steps:
       - name: Backfill Copilot assignee for open auto:implement issues
         uses: actions/github-script@v8
@@ -119,11 +124,12 @@ Copilot auto-implement is enabled / 已啟用：
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
             const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: "open",
-              labels: "auto:implement",
+              labels: autoImplementLabel,
               per_page: 100
             });
 
