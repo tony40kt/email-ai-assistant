@@ -26,6 +26,7 @@ jobs:
             const designPath = path.join(process.env.GITHUB_WORKSPACE, "docs", "ISSUES_DESIGN.md");
             const content = fs.readFileSync(designPath, "utf8");
             const LABEL_SECTION_HEADER = "## 建議 Labels 清單（先建立）";
+            const LABEL_EXISTS_STATUS = 422;
 
             const unescape = (value = "") => value.replace(/\\\[/g, "[").replace(/\\\]/g, "]").trim();
 
@@ -46,7 +47,7 @@ jobs:
 
             const issueBlocks = [];
             // Match each `## Issue N` block until next issue block or labels section.
-            const issueBlockPattern = String.raw`^## Issue \d+\n([\s\S]*?)(?=^## Issue \d+\n|^---\n\n${LABEL_SECTION_HEADER}|$)`;
+            const issueBlockPattern = `^## Issue \\d+\\n([\\s\\S]*?)(?=^## Issue \\d+\\n|^---\\n\\n${LABEL_SECTION_HEADER}|$)`;
             const issueRegex = new RegExp(
               issueBlockPattern,
               "gm"
@@ -102,7 +103,7 @@ jobs:
                 });
               } catch (error) {
                 const status = error?.status;
-                if (status === 422) {
+                if (status === LABEL_EXISTS_STATUS) {
                   core.info(`Label already exists: ${name}`);
                   continue;
                 }
