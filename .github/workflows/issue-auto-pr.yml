@@ -113,7 +113,6 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ env.PR_AUTOMATION_TOKEN }}
-          branch-token: ${{ env.PR_AUTOMATION_TOKEN }}
           branch: ${{ steps.meta.outputs.branch }}
           commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
           title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
