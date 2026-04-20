@@ -17,6 +17,9 @@ jobs:
   sync-status:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    env:
+      STATUS_FIELD_NAME: Status
+      IN_PROGRESS_OPTION_NAME: In Progress
     steps:
       - name: Assign Copilot and move linked issues to In Progress
         uses: actions/github-script@v8
@@ -26,12 +29,14 @@ jobs:
             const repo = context.repo.repo;
             const prNumber = context.payload.pull_request.number;
             const headRef = context.payload.pull_request.head.ref || "";
+            const statusFieldName = (process.env.STATUS_FIELD_NAME || "Status").trim().toLowerCase();
+            const inProgressOptionName = (process.env.IN_PROGRESS_OPTION_NAME || "In Progress").trim().toLowerCase();
 
             const query = `
               query($owner: String!, $repo: String!, $prNumber: Int!) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $prNumber) {
-                    closingIssuesReferences(first: 50) {
+                    closingIssuesReferences(first: 100) {
                       nodes {
                         id
                         number
@@ -116,23 +121,23 @@ jobs:
               for (const item of issueItems) {
                 const statusFieldValue = (item.fieldValues?.nodes || []).find((v) => {
                   const fieldName = v?.field?.name || "";
-                  return fieldName.toLowerCase() === "status";
+                  return fieldName.toLowerCase() === statusFieldName;
                 });
 
                 if (!statusFieldValue?.field?.id) {
-                  core.info(`Issue #${issue.number} project "${item.project?.title || "unknown"}" has no Status field access.`);
+                  core.info(`Issue #${issue.number} project "${item.project?.title || "unknown"}" has no "${process.env.STATUS_FIELD_NAME}" field access.`);
                   continue;
                 }
 
                 const statusField = statusFieldValue.field;
-                const targetOption = (statusField.options || []).find((opt) => opt.name.toLowerCase() === "in progress");
+                const targetOption = (statusField.options || []).find((opt) => opt.name.toLowerCase() === inProgressOptionName);
                 if (!targetOption?.id) {
-                  core.info(`Project "${item.project?.title || "unknown"}" has no "In Progress" option.`);
+                  core.info(`Project "${item.project?.title || "unknown"}" has no "${process.env.IN_PROGRESS_OPTION_NAME}" option.`);
                   continue;
                 }
 
-                if ((statusFieldValue.name || "").toLowerCase() === "in progress") {
-                  core.info(`Issue #${issue.number} is already In Progress in "${item.project?.title || "unknown"}".`);
+                if ((statusFieldValue.name || "").toLowerCase() === inProgressOptionName) {
+                  core.info(`Issue #${issue.number} is already ${process.env.IN_PROGRESS_OPTION_NAME} in "${item.project?.title || "unknown"}".`);
                   continue;
                 }
 
@@ -159,7 +164,7 @@ jobs:
                       optionId: targetOption.id
                     }
                   );
-                  core.info(`Issue #${issue.number} moved to In Progress in "${item.project?.title || "unknown"}".`);
+                  core.info(`Issue #${issue.number} moved to ${process.env.IN_PROGRESS_OPTION_NAME} in "${item.project?.title || "unknown"}".`);
                 } catch (error) {
                   core.warning(`Failed updating issue #${issue.number} in "${item.project?.title || "unknown"}": ${error.message}`);
                 }

@@ -98,7 +98,10 @@ jobs:
                 repo,
                 issue_number,
                 body: `${marker}
-Copilot auto-implement 已啟用：
+Copilot auto-implement is enabled / 已啟用：
+- Confirmed \`auto:implement\` label
+- Attempted to assign Copilot agent
+- Copilot will create a related PR from this issue
 - 已確認 \`auto:implement\` label
 - 已嘗試指派 Copilot 代理
 - Copilot 會依 Issue 內容建立對應 PR`
