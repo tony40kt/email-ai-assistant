@@ -1,0 +1,152 @@
+name: Issue Automation
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto label and checklist reminder
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = issue.number;
+            const title = (issue.title || "").toLowerCase();
+            const body = (issue.body || "").toLowerCase();
+
+            const existingLabels = (issue.labels || []).map(l => l.name);
+            const labelsToAdd = new Set();
+            const repoLabels = [
+              "type:epic","type:feature","type:task","type:bug",
+              "priority:P0","priority:P1","priority:P2","priority:P3",
+              "area:project","area:ios","area:backend","area:oauth","area:mail-sync",
+              "area:classification","area:label","area:search","area:notification","area:scheduler",
+              "area:translation","area:ui","area:i18n","area:security","area:qa","area:workflow","area:docs"
+            ];
+            const labelColors = {
+              "type:epic": "5319e7",
+              "type:feature": "1d76db",
+              "type:task": "0e8a16",
+              "type:bug": "d73a4a",
+              "priority:P0": "b60205",
+              "priority:P1": "d93f0b",
+              "priority:P2": "fbca04",
+              "priority:P3": "c2e0c6"
+            };
+
+            // Ensure base labels exist in repository
+            for (const name of repoLabels) {
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name,
+                color: labelColors[name] || "ededed",
+                description: `Auto-managed label: ${name}`
+              }).catch(() => {});
+            }
+
+            // Type label by title prefix (fallback)
+            if (title.startsWith("[epic]")) labelsToAdd.add("type:epic");
+            if (title.startsWith("[feature]")) labelsToAdd.add("type:feature");
+            if (title.startsWith("[task]")) labelsToAdd.add("type:task");
+            if (title.startsWith("[bug]")) labelsToAdd.add("type:bug");
+
+            // Priority label from body/title content
+            const priorityMap = ["p0", "p1", "p2", "p3"];
+            for (const p of priorityMap) {
+              if (title.includes(p) || body.includes(`priority`) && body.includes(p)) {
+                labelsToAdd.add(`priority:${p.toUpperCase()}`);
+                break;
+              }
+            }
+
+            // Area labels by keyword
+            const areaRules = [
+              { key: "oauth", label: "area:oauth" },
+              { key: "gmail", label: "area:oauth" },
+              { key: "outlook", label: "area:oauth" },
+              { key: "分類", label: "area:classification" },
+              { key: "標籤", label: "area:label" },
+              { key: "搜尋", label: "area:search" },
+              { key: "篩選", label: "area:search" },
+              { key: "推送", label: "area:notification" },
+              { key: "排程", label: "area:scheduler" },
+              { key: "翻譯", label: "area:translation" },
+              { key: "繁中", label: "area:i18n" },
+              { key: "ui", label: "area:ui" },
+              { key: "介面", label: "area:ui" },
+              { key: "安全", label: "area:security" },
+              { key: "workflow", label: "area:workflow" },
+              { key: "文件", label: "area:docs" }
+            ];
+
+            for (const rule of areaRules) {
+              if (title.includes(rule.key) || body.includes(rule.key)) {
+                labelsToAdd.add(rule.label);
+              }
+            }
+
+            // Remove duplicate priority labels: keep the first newly detected one or existing one.
+            const priorityLabels = ["priority:P0", "priority:P1", "priority:P2", "priority:P3"];
+            const newPriority = [...labelsToAdd].find(l => priorityLabels.includes(l));
+            const existingPriority = existingLabels.find(l => priorityLabels.includes(l));
+
+            if (newPriority && existingPriority && newPriority !== existingPriority) {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number,
+                name: existingPriority
+              }).catch(() => {});
+            }
+
+            const finalLabels = [...labelsToAdd].filter(l => !existingLabels.includes(l));
+            if (finalLabels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: finalLabels
+              });
+            }
+
+            // DoD/checklist reminder
+            const hasDoD = body.includes("dod") || body.includes("完成定義");
+            const hasChecklist = body.includes("- [ ]");
+            const hasPriority = body.includes("priority");
+
+            if (!hasDoD || !hasChecklist || !hasPriority) {
+              const marker = "<!-- issue-automation-reminder -->";
+              const reminder = `${marker}
+            👋 感謝建立 Issue！為了讓自動化流程完整運作，請補齊以下資訊：
+            - Priority（P0/P1/P2/P3）
+            - 工作項目（Checklist）
+            - DoD（完成定義）
+            
+            你可以直接使用已提供的 Issue Template（Epic/Feature/Task/Bug）快速補齊。`;
+
+              const comments = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number,
+                per_page: 100
+              });
+              const alreadyCommented = comments.data.some(c => (c.body || "").includes(marker));
+              if (!alreadyCommented) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: reminder
+                });
+              }
+            }

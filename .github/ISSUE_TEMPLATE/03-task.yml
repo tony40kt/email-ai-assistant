@@ -1,0 +1,47 @@
+name: TASK
+description: 技術工作、流程工作或文件工作
+title: "[TASK] "
+labels:
+  - type:task
+body:
+  - type: input
+    id: purpose
+    attributes:
+      label: 目的
+      description: 這項任務要解決什麼問題？
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: textarea
+    id: workitems
+    attributes:
+      label: 工作項目
+      placeholder: |
+        - [ ] 任務 1
+        - [ ] 任務 2
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: DoD（完成定義）
+      placeholder: |
+        - [ ] 工作項目全數完成
+        - [ ] 驗收條件已確認
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 相關備註
+
