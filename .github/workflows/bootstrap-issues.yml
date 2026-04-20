@@ -99,7 +99,7 @@ jobs:
                   description: `Auto-managed label: ${name}`
                 });
               } catch (error) {
-                if (error.status === 422) {
+                if (Number(error?.status) === 422) {
                   core.info(`Label already exists: ${name}`);
                   continue;
                 }
