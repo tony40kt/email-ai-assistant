@@ -53,8 +53,6 @@ jobs:
     needs: verify-actor
     if: github.event.label.name == 'auto:implement' && needs.verify-actor.outputs.trusted == 'true'
     runs-on: ubuntu-latest
-    env:
-      AUTO_IMPLEMENT_TOKEN: ${{ secrets.AUTO_IMPLEMENT_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,6 +101,7 @@ jobs:
 
       - name: Select PR automation token
         env:
+          AUTO_IMPLEMENT_TOKEN: ${{ secrets.AUTO_IMPLEMENT_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ -n "$AUTO_IMPLEMENT_TOKEN" ]; then
