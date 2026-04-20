@@ -14,8 +14,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  create-pr:
+  verify-actor:
     if: github.event.label.name == 'auto:implement'
+    runs-on: ubuntu-latest
+    outputs:
+      trusted: ${{ steps.check-actor.outputs.trusted }}
+    steps:
+      - name: Verify labeling actor is trusted
+        id: check-actor
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const username = context.payload.sender.login;
+            const trustedPermissions = new Set(["admin", "maintain", "write"]);
+
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner,
+                repo,
+                username
+              });
+              const trusted = trustedPermissions.has(data.permission);
+              core.setOutput("trusted", trusted ? "true" : "false");
+              if (!trusted) {
+                core.info(`Actor ${username} is not trusted (permission: ${data.permission}).`);
+              }
+            } catch (error) {
+              core.info(`Could not determine collaborator permission for ${username}: ${error.message}`);
+              core.setOutput("trusted", "false");
+            }
+
+  create-pr:
+    needs: verify-actor
+    if: github.event.label.name == 'auto:implement' && needs.verify-actor.outputs.trusted == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -79,6 +112,3 @@ jobs:
             - Initialized issue working file `${{ steps.meta.outputs.file }}`
 
             Closes #${{ github.event.issue.number }}
-          labels: |
-            type:task
-            area:workflow
