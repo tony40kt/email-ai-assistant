@@ -24,7 +24,7 @@
   1. iOS 端開啟 Google 授權頁（Authorization Code + PKCE）。
   2. 使用 redirect URI 回到 App。
   3. App 將 authorization code 傳到後端兌換 access/refresh token。
-  4. 後端以安全儲存保存 token，回傳前端短時效 session 資訊（建議自簽發起算 15 分鐘到期，且不回傳 refresh token）。
+  4. 後端以安全儲存保存 token，回傳前端短時效 session 資訊（建議自簽發起算 15 分鐘到期，且不回傳 refresh token；時效可依安全與使用體驗需求調整，延長時應同步評估 token 撤銷策略）。
   5. 後端代為呼叫 Gmail API 讀取郵件資料。
 
 ## 3) Outlook OAuth 擴充點（次階段）
@@ -41,7 +41,7 @@
 
 - 前端：
   - 不保存 refresh token。
-  - 僅保存必要且短時效的登入態資訊，MVP（React Native + Expo）統一使用 `expo-secure-store`（底層使用 iOS Keychain）。
+  - 僅保存必要且短時效的登入態資訊，MVP（React Native + Expo）統一使用 `expo-secure-store`（iOS 底層使用 Keychain；Android 底層使用 Keystore）。
   - 禁止將 token、authorization code、mail payload 寫入 console log。
 - 後端：
   - refresh token 僅存後端（建議加密後保存）。
