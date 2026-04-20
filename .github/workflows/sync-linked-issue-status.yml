@@ -1,0 +1,167 @@
+name: Sync Linked Issue Status
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, ready_for_review, synchronize]
+
+permissions:
+  issues: write
+  pull-requests: read
+  repository-projects: write
+
+concurrency:
+  group: linked-issue-status-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  sync-status:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign Copilot and move linked issues to In Progress
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = context.payload.pull_request.number;
+            const headRef = context.payload.pull_request.head.ref || "";
+
+            const query = `
+              query($owner: String!, $repo: String!, $prNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $prNumber) {
+                    closingIssuesReferences(first: 50) {
+                      nodes {
+                        id
+                        number
+                        title
+                        labels(first: 20) {
+                          nodes {
+                            name
+                          }
+                        }
+                        projectItems(first: 20) {
+                          nodes {
+                            id
+                            project {
+                              id
+                              title
+                            }
+                            fieldValues(first: 50) {
+                              nodes {
+                                ... on ProjectV2ItemFieldSingleSelectValue {
+                                  name
+                                  optionId
+                                  field {
+                                    ... on ProjectV2SingleSelectField {
+                                      id
+                                      name
+                                      options {
+                                        id
+                                        name
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const data = await github.graphql(query, { owner, repo, prNumber });
+            const linkedIssues = data?.repository?.pullRequest?.closingIssuesReferences?.nodes || [];
+            const hasAutoImplementIssue = linkedIssues.some((issue) =>
+              (issue.labels?.nodes || []).some((label) => label.name === "auto:implement")
+            );
+            const shouldAssignCopilot = headRef.startsWith("copilot/") || hasAutoImplementIssue;
+
+            if (shouldAssignCopilot) {
+              const prAssignees = (context.payload.pull_request.assignees || []).map((a) => a.login.toLowerCase());
+              if (!prAssignees.includes("copilot")) {
+                try {
+                  await github.rest.issues.addAssignees({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    assignees: ["Copilot"]
+                  });
+                  core.info(`Assigned Copilot to PR #${prNumber}.`);
+                } catch (error) {
+                  core.warning(`Could not assign Copilot to PR #${prNumber}: ${error.message}`);
+                }
+              }
+            } else {
+              core.info(`PR #${prNumber} is not a Copilot auto-implement PR. Skip Copilot assignment.`);
+            }
+
+            if (linkedIssues.length === 0) {
+              core.info(`PR #${prNumber} has no linked issues. Nothing to sync.`);
+              return;
+            }
+
+            for (const issue of linkedIssues) {
+              const issueItems = issue.projectItems?.nodes || [];
+              if (issueItems.length === 0) {
+                core.info(`Issue #${issue.number} has no project item. Skipping status sync.`);
+                continue;
+              }
+
+              for (const item of issueItems) {
+                const statusFieldValue = (item.fieldValues?.nodes || []).find((v) => {
+                  const fieldName = v?.field?.name || "";
+                  return fieldName.toLowerCase() === "status";
+                });
+
+                if (!statusFieldValue?.field?.id) {
+                  core.info(`Issue #${issue.number} project "${item.project?.title || "unknown"}" has no Status field access.`);
+                  continue;
+                }
+
+                const statusField = statusFieldValue.field;
+                const targetOption = (statusField.options || []).find((opt) => opt.name.toLowerCase() === "in progress");
+                if (!targetOption?.id) {
+                  core.info(`Project "${item.project?.title || "unknown"}" has no "In Progress" option.`);
+                  continue;
+                }
+
+                if ((statusFieldValue.name || "").toLowerCase() === "in progress") {
+                  core.info(`Issue #${issue.number} is already In Progress in "${item.project?.title || "unknown"}".`);
+                  continue;
+                }
+
+                try {
+                  await github.graphql(
+                    `
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId
+                          itemId: $itemId
+                          fieldId: $fieldId
+                          value: { singleSelectOptionId: $optionId }
+                        }) {
+                          projectV2Item {
+                            id
+                          }
+                        }
+                      }
+                    `,
+                    {
+                      projectId: item.project.id,
+                      itemId: item.id,
+                      fieldId: statusField.id,
+                      optionId: targetOption.id
+                    }
+                  );
+                  core.info(`Issue #${issue.number} moved to In Progress in "${item.project?.title || "unknown"}".`);
+                } catch (error) {
+                  core.warning(`Failed updating issue #${issue.number} in "${item.project?.title || "unknown"}": ${error.message}`);
+                }
+              }
+            }
