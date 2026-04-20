@@ -75,7 +75,7 @@
 
 - 到 Repository → **Settings** → **Secrets and variables** → **Actions**
 - 新增 secret：`AUTO_IMPLEMENT_TOKEN`
-- 值請使用具有 repo 權限的 PAT（建議最小權限：`contents: write`、`pull requests: write`、`issues: write`）
+- 值請使用 PAT（建議使用 **fine-grained PAT**，最小權限：`contents: write`、`pull requests: write`、`issues: write`）
 - `issue-auto-pr.yml` 會優先使用 `AUTO_IMPLEMENT_TOKEN` 建立 PR；若未設定才回退到 `GITHUB_TOKEN`
 
 ## 6. 給「只用 GitHub 網頁版」的操作步驟
