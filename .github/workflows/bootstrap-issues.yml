@@ -46,7 +46,10 @@ jobs:
             };
 
             const issueBlocks = [];
-            // Match each `## Issue N` block until next issue block or labels section.
+            // Match each `## Issue N` block and stop before:
+            // 1) the next `## Issue N` block,
+            // 2) the labels summary section, or
+            // 3) end-of-file.
             const issueBlockPattern = `^## Issue \\d+\\n([\\s\\S]*?)(?=^## Issue \\d+\\n|^---\\n\\n${LABEL_SECTION_HEADER}|$)`;
             const issueRegex = new RegExp(
               issueBlockPattern,
@@ -60,8 +63,12 @@ jobs:
             const issues = issueBlocks.map((block) => {
               const labelsLine = extractField(block, "Labels");
               const labels = [...labelsLine.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+              const title = extractField(block, "Title");
+              if (title && labels.length === 0) {
+                throw new Error(`No labels found for issue spec: ${title}`);
+              }
               return {
-                title: extractField(block, "Title"),
+                title,
                 bodyType: extractField(block, "Body Type"),
                 priority: extractField(block, "Priority"),
                 labels,
@@ -108,7 +115,7 @@ jobs:
                   continue;
                 }
 
-                core.error(`Failed to create label "${name}" (status: ${status || "unknown"}): ${error.message}`);
+                core.error(`Failed to create label "${name}" (status: ${status || "unknown"}): ${error.message}. Aborting bootstrap.`);
                 throw error;
               }
             }
