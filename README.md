@@ -78,7 +78,7 @@
 3. 依表單填寫：目標、工作項目、DoD、備註
 4. 建立後，Workflow 會自動補上建議標籤與檢查留言
 5. 完成工作時，在該 Issue 勾選工作項目並更新狀態
-6. 若要自動啟動 Copilot 開發流程，幫該 Issue 加上 `auto:implement` 標籤（或更新/重新開啟該 Issue）
+6. 若要自動啟動 Copilot 開發流程，先確保該 Issue 已有 `auto:implement` 標籤；之後加標、更新或重新開啟該 Issue 都可觸發流程
 
 ## 7. 安全與隱私原則
 
