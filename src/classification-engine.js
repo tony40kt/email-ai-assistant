@@ -1,6 +1,7 @@
 'use strict';
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+const normalizeString = (value) => value.trim().toLowerCase();
 
 const toArray = (value) => {
   if (Array.isArray(value)) return value;
@@ -16,7 +17,7 @@ const containsAny = (target, tokens) => {
   if (!tokens.length) return true;
   if (!isNonEmptyString(target)) return false;
 
-  const normalizedTarget = target.toLowerCase();
+  const normalizedTarget = normalizeString(target);
   return tokens.some((token) => normalizedTarget.includes(token));
 };
 
@@ -25,7 +26,7 @@ const recipientsContainAny = (recipients, tokens) => {
 
   const pool = toArray(recipients)
     .filter(isNonEmptyString)
-    .map((item) => item.toLowerCase());
+    .map((item) => normalizeString(item));
 
   if (!pool.length) return false;
   return pool.some((recipient) => tokens.some((token) => recipient.includes(token)));
@@ -65,21 +66,39 @@ const ruleMatches = (email, rule) => {
 const pickWinningRule = (rules) => {
   if (!rules.length) return null;
 
-  return [...rules].sort((left, right) => {
-    const priorityDelta = normalizePriority(left.priority) - normalizePriority(right.priority);
-    if (priorityDelta !== 0) return priorityDelta;
+  let winner = rules[0];
 
-    const createdDelta = normalizeTimestamp(left.createdAt) - normalizeTimestamp(right.createdAt);
-    if (createdDelta !== 0) return createdDelta;
+  for (let index = 1; index < rules.length; index += 1) {
+    const candidate = rules[index];
 
-    return left.__index - right.__index;
-  })[0];
+    const priorityDelta = normalizePriority(candidate.priority) - normalizePriority(winner.priority);
+    if (priorityDelta < 0) {
+      winner = candidate;
+      continue;
+    }
+    if (priorityDelta > 0) continue;
+
+    const createdDelta = normalizeTimestamp(candidate.createdAt) - normalizeTimestamp(winner.createdAt);
+    if (createdDelta < 0) {
+      winner = candidate;
+      continue;
+    }
+    if (createdDelta > 0) continue;
+
+    if (candidate.__index < winner.__index) winner = candidate;
+  }
+
+  return winner;
 };
 
+const normalizeLabels = (labels) => toArray(labels)
+  .filter(isNonEmptyString)
+  .map((label) => label.trim());
+
 const mergeLabels = (baseLabels, removedLabels, addedLabels) => {
-  const result = new Set(toArray(baseLabels).filter(isNonEmptyString));
-  for (const label of toArray(removedLabels).filter(isNonEmptyString)) result.delete(label);
-  for (const label of toArray(addedLabels).filter(isNonEmptyString)) result.add(label);
+  const result = new Set(normalizeLabels(baseLabels));
+  for (const label of normalizeLabels(removedLabels)) result.delete(label);
+  for (const label of normalizeLabels(addedLabels)) result.add(label);
   return [...result];
 };
 
@@ -92,8 +111,8 @@ function classifyEmail(email, rules) {
   const matchedRules = safeRules.filter((rule) => ruleMatches(safeEmail, rule));
   const winningRule = pickWinningRule(matchedRules);
 
-  const previousAutoLabels = toArray(safeEmail.classification?.appliedLabels).filter(isNonEmptyString);
-  const nextAutoLabels = toArray(winningRule?.labels).filter(isNonEmptyString);
+  const previousAutoLabels = normalizeLabels(safeEmail.classification?.appliedLabels);
+  const nextAutoLabels = normalizeLabels(winningRule?.labels);
   const nextLabels = mergeLabels(safeEmail.labels, previousAutoLabels, nextAutoLabels);
 
   const trace = {

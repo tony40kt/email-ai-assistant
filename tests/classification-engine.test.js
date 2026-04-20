@@ -79,6 +79,68 @@ test('resolves conflicts by priority then createdAt', () => {
   assert.equal(samePriorityOnly.winningRule.id, 'earlier-created');
 });
 
+test('resolves exact ties by declaration order', () => {
+  const email = {
+    from: 'service@vendor.com',
+    subject: 'Monthly report',
+    body: 'report ready',
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'first',
+      name: '第一條',
+      priority: 1,
+      conditions: { from: 'vendor.com', keyword: 'report' },
+      labels: ['A']
+    },
+    {
+      id: 'second',
+      name: '第二條',
+      priority: 1,
+      conditions: { from: 'vendor.com', keyword: 'report' },
+      labels: ['B']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'first');
+});
+
+test('skips disabled matching rules', () => {
+  const email = {
+    from: 'billing@service.com',
+    subject: 'Invoice ready',
+    body: 'invoice attached',
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'disabled-top-priority',
+      name: '停用高優先',
+      priority: 0,
+      enabled: false,
+      conditions: { from: 'service.com', keyword: 'invoice' },
+      labels: ['DoNotUse']
+    },
+    {
+      id: 'enabled-rule',
+      name: '啟用規則',
+      priority: 1,
+      conditions: { from: 'service.com', keyword: 'invoice' },
+      labels: ['Finance']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'enabled-rule');
+  assert.deepEqual(result.trace.matchedRuleIds, ['enabled-rule']);
+});
+
 test('updates labels by replacing previous auto-applied labels only', () => {
   const email = {
     from: 'alerts@shop.com',
@@ -106,6 +168,35 @@ test('updates labels by replacing previous auto-applied labels only', () => {
   assert.deepEqual(result.email.labels.sort(), ['Pinned', 'Promo']);
   assert.deepEqual(result.email.classification.appliedLabels, ['Promo']);
   assert.equal(result.email.classification.matchedRuleId, 'new-promo');
+});
+
+test('normalizes whitespace in recipients and labels', () => {
+  const email = {
+    from: 'alerts@shop.com',
+    to: ['  me@example.com  '],
+    subject: 'Flash sale',
+    body: '50% off',
+    labels: ['Pinned', '  OldPromo  '],
+    classification: {
+      appliedLabels: ['OldPromo']
+    }
+  };
+
+  const rules = [
+    {
+      id: 'trimmed-match',
+      name: '空白正規化',
+      priority: 1,
+      conditions: { to: 'me@example.com', keyword: 'sale' },
+      labels: ['  Promo  ']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'trimmed-match');
+  assert.deepEqual(result.email.labels.sort(), ['Pinned', 'Promo']);
+  assert.deepEqual(result.email.classification.appliedLabels, ['Promo']);
 });
 
 test('clears previous auto labels when no rule matches', () => {
