@@ -1,0 +1,119 @@
+name: Auto-implement Issue -> Draft PR
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: auto-impl-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-generate:
+    if: contains(github.event.issue.labels.*.name, 'auto:implement')
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Verify actor is trusted
+        id: verify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const username = context.payload.sender.login;
+            const trustedAutomationActors = new Set(["github-actions[bot]"]);
+            const trustedPermissions = new Set(["admin","maintain","write"]);
+            if (trustedAutomationActors.has(username)) {
+              core.setOutput("trusted", "true");
+              return;
+            }
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username
+              });
+              core.setOutput("trusted", trustedPermissions.has(data.permission) ? "true" : "false");
+            } catch (e) {
+              core.setOutput("trusted", "false");
+            }
+      - name: Checkout
+        if: steps.verify.outputs.trusted == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        if: steps.verify.outputs.trusted == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Write issue metadata file
+        if: steps.verify.outputs.trusted == 'true'
+        run: |
+          mkdir -p .github/issue-input
+          cat > .github/issue-input/issue.json <<'JSON'
+          {
+            "number": ${{ github.event.issue.number }},
+            "title": ${JSON.stringify(github.event.issue.title)},
+            "body": ${JSON.stringify(github.event.issue.body || "")}
+          }
+          JSON
+      - name: Install dependencies for generator
+        if: steps.verify.outputs.trusted == 'true'
+        run: |
+          npm ci || true
+      - name: Generate files from issue (LLM)
+        if: steps.verify.outputs.trusted == 'true'
+        run: |
+          node .github/scripts/generate-from-issue.js .github/issue-input/issue.json
+      - name: Create branch, commit and push generated files
+        if: steps.verify.outputs.trusted == 'true'
+        env:
+          GITHUB_ACTOR: github-actions
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUM=${{ github.event.issue.number }}
+          BRANCH="copilot/issue-${ISSUE_NUM}/auto-impl"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "${BRANCH}"
+          # Add only files produced in .autogen (generator should write there)
+          if [ -d .autogen ]; then
+            git add .autogen || true
+            git commit -m "chore(auto): auto-generate implementation for issue #${ISSUE_NUM}" || true
+            git push --set-upstream origin "${BRANCH}"
+          else
+            echo "No generated files found in .autogen — aborting."
+            exit 1
+          fi
+      - name: Create draft PR and assign Copilot
+        if: steps.verify.outputs.trusted == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.issue.number;
+            const branch = `copilot/issue-${issue_number}/auto-impl`;
+            const title = `[auto] Implement ${context.payload.issue.title}`;
+            const body = `Auto-generated draft implementation for issue #${issue_number}.\n\nIssue: ${context.payload.issue.html_url}\n\nPlease review and un-draft when ready.`;
+            const pr = await github.rest.pulls.create({
+              owner, repo, title, head: branch, base: context.repo.default_branch, body, draft: true
+            });
+            // Link the PR to the issue by commenting
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Draft PR created: ${pr.data.html_url}`});
+            // Assign Copilot if the app is installed
+            try {
+              await github.rest.issues.addAssignees({
+                owner, repo, issue_number,
+                assignees: ["Copilot"]
+              });
+            } catch (e) {
+              core.info(`Could not assign Copilot: ${e.message}`);
+            }
