@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       backfill:
-        description: "Assign Copilot to all open issues with auto:implement"
+        description: "Assign Copilot to open auto:implement issues that do not already have Copilot"
         required: false
         type: boolean
         default: false

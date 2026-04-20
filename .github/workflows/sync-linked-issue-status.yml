@@ -21,7 +21,7 @@ jobs:
       STATUS_FIELD_NAME: Status
       IN_PROGRESS_OPTION_NAME: In Progress
     steps:
-      - name: Assign Copilot and move linked issues to In Progress
+      - name: Conditionally assign Copilot and sync linked issue status
         uses: actions/github-script@v8
         with:
           script: |
