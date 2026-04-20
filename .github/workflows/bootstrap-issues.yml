@@ -45,8 +45,10 @@ jobs:
             };
 
             const issueBlocks = [];
+            // Match each `## Issue N` block until next issue block or labels section.
+            const issueBlockPattern = String.raw`^## Issue \d+\n([\s\S]*?)(?=^## Issue \d+\n|^---\n\n${LABEL_SECTION_HEADER}|$)`;
             const issueRegex = new RegExp(
-              String.raw`^## Issue \d+\n([\s\S]*?)(?=^## Issue \d+\n|^---\n\n${LABEL_SECTION_HEADER}|$)`,
+              issueBlockPattern,
               "gm"
             );
             let issueMatch;
@@ -105,7 +107,7 @@ jobs:
                   continue;
                 }
 
-                core.error(`Failed to create label \"${name}\" (status: ${status || "unknown"}): ${error.message}`);
+                core.error(`Failed to create label "${name}" (status: ${status || "unknown"}): ${error.message}`);
                 throw error;
               }
             }
