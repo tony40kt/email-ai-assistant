@@ -93,7 +93,7 @@
 | `GMAIL_REDIRECT_URI` | Gmail OAuth Redirect URI | ✅ | ✅ |
 | `SUPABASE_URL` | Supabase 專案 URL | ✅ | ✅ |
 | `SUPABASE_ANON_KEY` | Supabase 公開金鑰 | ✅ | ✅ |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 服務金鑰（僅後端） | ❌ | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 服務金鑰（僅後端） | ✅（僅後端本機安全環境） | ✅ |
 | `LIBRETRANSLATE_API_URL` | 翻譯服務 URL | ✅ | ✅ |
 | `LIBRETRANSLATE_API_KEY` | 翻譯服務金鑰（若需要） | ✅ | ✅ |
 
