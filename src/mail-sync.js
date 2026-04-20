@@ -27,6 +27,12 @@ const mapEmailModel = (source = {}) => ({
 });
 
 const isRetryableError = (error) => Boolean(error && (error.retryable || RETRYABLE_ERROR_CODES.has(error.code)));
+const hasRequiredStorageMethods = (storage) => (
+  storage
+  && typeof storage.loadState === "function"
+  && typeof storage.saveState === "function"
+  && typeof storage.saveEmails === "function"
+);
 
 const syncEmails = async ({
   fetchPage,
@@ -38,7 +44,7 @@ const syncEmails = async ({
   if (typeof fetchPage !== "function") {
     throw new TypeError("fetchPage must be a function");
   }
-  if (!storage || typeof storage.loadState !== "function" || typeof storage.saveState !== "function" || typeof storage.saveEmails !== "function") {
+  if (!hasRequiredStorageMethods(storage)) {
     throw new TypeError("storage must provide loadState/saveState/saveEmails");
   }
 

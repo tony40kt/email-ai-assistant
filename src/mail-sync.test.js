@@ -4,9 +4,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { MailSyncError, mapEmailModel, syncEmails } = require("./mail-sync");
 
-const createMemoryStorage = (state = { lastSyncToken: null }) => {
+const createMemoryStorage = (initialState = { lastSyncToken: null }) => {
   const db = {
-    state: { ...state },
+    state: { ...initialState },
     emails: []
   };
   return {
