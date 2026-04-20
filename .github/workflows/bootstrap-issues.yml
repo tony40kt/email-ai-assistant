@@ -25,6 +25,7 @@ jobs:
             const repo = context.repo.repo;
             const designPath = path.join(process.env.GITHUB_WORKSPACE, "docs", "ISSUES_DESIGN.md");
             const content = fs.readFileSync(designPath, "utf8");
+            const LABEL_SECTION_HEADER = "## 建議 Labels 清單（先建立）";
 
             const unescape = (value = "") => value.replace(/\\\[/g, "[").replace(/\\\]/g, "]").trim();
 
@@ -44,7 +45,10 @@ jobs:
             };
 
             const issueBlocks = [];
-            const issueRegex = /^## Issue \d+\n([\s\S]*?)(?=^## Issue \d+\n|^---\n\n## 建議 Labels 清單（先建立）|\Z)/gm;
+            const issueRegex = new RegExp(
+              `^## Issue \\\\d+\\\\n([\\\\s\\\\S]*?)(?=^## Issue \\\\d+\\\\n|^---\\\\n\\\\n${LABEL_SECTION_HEADER}|$)`,
+              "gm"
+            );
             let issueMatch;
             while ((issueMatch = issueRegex.exec(content)) !== null) {
               issueBlocks.push(issueMatch[1]);
@@ -81,7 +85,7 @@ jobs:
               "auto:implement": "0052cc"
             };
 
-            const labelSection = content.split("## 建議 Labels 清單（先建立）")[1] || "";
+            const labelSection = content.split(LABEL_SECTION_HEADER)[1] || "";
             const repoLabels = new Set([...labelSection.matchAll(/- `([^`]+)`/g)].map((m) => m[1]));
             repoLabels.add("auto:implement");
 
