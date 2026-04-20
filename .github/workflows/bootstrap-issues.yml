@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create labels and planned issues from docs/ISSUES_DESIGN.md
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require("fs");
@@ -50,7 +50,7 @@ jobs:
             // 1) the next `## Issue N` block,
             // 2) the labels summary section, or
             // 3) end-of-file.
-            const issueBlockPattern = `^## Issue \\d+\\n([\\s\\S]*?)(?=^## Issue \\d+\\n|^---\\n\\n${LABEL_SECTION_HEADER}|$)`;
+            const issueBlockPattern = `^## Issue \\d+\\n([\\s\\S]*?)(?=^## Issue \\d+\\n|^---\\n\\n${LABEL_SECTION_HEADER}|(?![\\s\\S]))`;
             const issueRegex = new RegExp(
               issueBlockPattern,
               "gm"
