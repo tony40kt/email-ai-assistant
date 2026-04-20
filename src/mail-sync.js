@@ -4,13 +4,14 @@ const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_MAX_PAGES_PER_SYNC = 4;
 const DEFAULT_MAX_RETRIES = 2;
 const RETRYABLE_ERROR_CODES = new Set(["ETIMEDOUT", "ECONNRESET"]);
+const DEFAULT_SYNC_ERROR_MESSAGE = "同步失敗，請檢查網路後重試。";
 
 class MailSyncError extends Error {
   constructor(message, options = {}) {
     super(message);
     this.name = "MailSyncError";
     this.retryable = Boolean(options.retryable);
-    this.userMessage = options.userMessage || "郵件同步失敗，請稍後重試。";
+    this.userMessage = options.userMessage || DEFAULT_SYNC_ERROR_MESSAGE;
     this.cause = options.cause;
   }
 }
@@ -50,11 +51,11 @@ const syncEmails = async ({
 
   const state = await storage.loadState();
   const syncState = state || {};
-  const since = syncState.lastSyncToken || syncState.lastSyncedAt || null;
+  const sinceMarker = syncState.lastSyncToken || syncState.lastSyncedAt || null;
   let cursor = null;
   let pagesLoaded = 0;
   let totalEmails = 0;
-  let latestSyncToken = since;
+  let latestSyncToken = syncState.lastSyncToken || null;
 
   while (pagesLoaded < maxPagesPerSync) {
     let response;
@@ -62,13 +63,13 @@ const syncEmails = async ({
 
     while (attempts <= maxRetries) {
       try {
-        response = await fetchPage({ cursor, since, pageSize });
+        response = await fetchPage({ cursor, since: sinceMarker, pageSize });
         break;
       } catch (error) {
         if (!isRetryableError(error) || attempts === maxRetries) {
           throw new MailSyncError("Mail sync request failed", {
             retryable: isRetryableError(error),
-            userMessage: "同步失敗，請檢查網路後重試。",
+            userMessage: DEFAULT_SYNC_ERROR_MESSAGE,
             cause: error
           });
         }
@@ -92,9 +93,9 @@ const syncEmails = async ({
   }
 
   const syncCompletedAt = new Date().toISOString();
-  const incrementalCursor = latestSyncToken || syncCompletedAt;
+  const nextSinceMarker = latestSyncToken || syncCompletedAt;
   await storage.saveState({
-    lastSyncToken: incrementalCursor,
+    lastSyncToken: latestSyncToken || null,
     lastSyncedAt: syncCompletedAt
   });
 
@@ -102,11 +103,13 @@ const syncEmails = async ({
     totalEmails,
     pagesLoaded,
     hasMore: Boolean(cursor),
-    lastSyncToken: incrementalCursor
+    lastSyncToken: latestSyncToken || null,
+    sinceMarker: nextSinceMarker
   };
 };
 
 module.exports = {
+  DEFAULT_SYNC_ERROR_MESSAGE,
   MailSyncError,
   mapEmailModel,
   syncEmails

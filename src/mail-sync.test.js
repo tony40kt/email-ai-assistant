@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { MailSyncError, mapEmailModel, syncEmails } = require("./mail-sync");
+const { DEFAULT_SYNC_ERROR_MESSAGE, MailSyncError, mapEmailModel, syncEmails } = require("./mail-sync");
 
 const createMemoryStorage = (initialState = { lastSyncToken: null }) => {
   const db = {
@@ -95,7 +95,7 @@ test("syncEmails retries retryable errors and returns retryable message when exh
     (error) => {
       assert.equal(error instanceof MailSyncError, true);
       assert.equal(error.retryable, true);
-      assert.equal(error.userMessage, "同步失敗，請檢查網路後重試。");
+      assert.equal(error.userMessage, DEFAULT_SYNC_ERROR_MESSAGE);
       return true;
     }
   );
@@ -114,7 +114,9 @@ test("syncEmails persists incremental cursor even when API does not return syncT
     storage
   });
 
-  assert.equal(typeof result.lastSyncToken, "string");
-  assert.ok(result.lastSyncToken.length > 0);
-  assert.equal(storage.getState().lastSyncToken, result.lastSyncToken);
+  assert.equal(result.lastSyncToken, null);
+  assert.equal(typeof result.sinceMarker, "string");
+  assert.ok(result.sinceMarker.length > 0);
+  assert.equal(storage.getState().lastSyncToken, null);
+  assert.equal(storage.getState().lastSyncedAt, result.sinceMarker);
 });
