@@ -46,7 +46,7 @@ jobs:
 
             const issueBlocks = [];
             const issueRegex = new RegExp(
-              `^## Issue \\\\d+\\\\n([\\\\s\\\\S]*?)(?=^## Issue \\\\d+\\\\n|^---\\\\n\\\\n${LABEL_SECTION_HEADER}|$)`,
+              String.raw`^## Issue \d+\n([\s\S]*?)(?=^## Issue \d+\n|^---\n\n${LABEL_SECTION_HEADER}|$)`,
               "gm"
             );
             let issueMatch;
@@ -99,12 +99,13 @@ jobs:
                   description: `Auto-managed label: ${name}`
                 });
               } catch (error) {
-                if (Number(error?.status) === 422) {
+                const status = error?.status;
+                if (status === 422) {
                   core.info(`Label already exists: ${name}`);
                   continue;
                 }
 
-                core.error(`Failed to create label \"${name}\" (status: ${error.status || "unknown"}): ${error.message}`);
+                core.error(`Failed to create label \"${name}\" (status: ${status || "unknown"}): ${error.message}`);
                 throw error;
               }
             }
