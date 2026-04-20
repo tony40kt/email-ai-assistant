@@ -9,7 +9,7 @@ on:
         description: "Assign Copilot to all open issues with auto:implement"
         required: false
         type: boolean
-        default: true
+        default: false
 
 permissions:
   issues: write
