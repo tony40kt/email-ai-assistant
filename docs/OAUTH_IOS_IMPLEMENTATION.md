@@ -24,7 +24,7 @@
   1. iOS 端開啟 Google 授權頁（Authorization Code + PKCE）。
   2. 使用 redirect URI 回到 App。
   3. App 將 authorization code 傳到後端兌換 access/refresh token。
-  4. 後端以安全儲存保存 token，回傳前端短時效 session 資訊（建議自簽發起 15 分鐘到期，且不回傳 refresh token）。
+  4. 後端以安全儲存保存 token，回傳前端短時效 session 資訊（建議自簽發起算 15 分鐘到期，且不回傳 refresh token）。
   5. 後端代為呼叫 Gmail API 讀取郵件資料。
 
 ## 3) Outlook OAuth 擴充點（次階段）
