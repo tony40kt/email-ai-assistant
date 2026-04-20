@@ -17,17 +17,17 @@ class MailSyncError extends Error {
 }
 
 const asArray = (value) => {
-  if (value == null) {
+  if (value === null || value === undefined) {
     return [];
   }
   return Array.isArray(value) ? value : [value];
 };
 
 const normalizeRecipient = (recipient) => {
-  if (recipient == null) {
+  if (recipient === null || recipient === undefined) {
     return "";
   }
-  if (typeof recipient === "object") {
+  if (typeof recipient === "object" && recipient !== null) {
     return String(recipient.email || recipient.address || recipient.value || "");
   }
   return String(recipient);
