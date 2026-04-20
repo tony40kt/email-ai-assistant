@@ -106,7 +106,7 @@ Copilot auto-implement 已啟用：
             }
 
   backfill-auto-implement:
-    if: github.event_name == 'workflow_dispatch' && (inputs.backfill == true || inputs.backfill == 'true')
+    if: github.event_name == 'workflow_dispatch' && inputs.backfill == true
     runs-on: ubuntu-latest
     steps:
       - name: Backfill Copilot assignee for open auto:implement issues
