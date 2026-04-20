@@ -123,7 +123,7 @@ test("saveToken persists token and returns stored shape", async () => {
   const saved = await manager.saveToken({
     accessToken: "tok_new",
     refreshToken: "rf_new",
-    expiresIn: 3600
+    expiresIn: 3600 // 1 hour in seconds
   });
 
   assert.equal(saved.accessToken, "tok_new");

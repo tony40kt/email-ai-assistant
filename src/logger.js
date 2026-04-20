@@ -16,8 +16,6 @@ const SENSITIVE_KEY_PATTERN = /^(access.?token|refresh.?token|authorization|cook
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
 
-const TOKEN_LIKE_PATTERN = /^[A-Za-z0-9+/=._-]{20,}$/;
-
 const maskEmail = (email) => {
   const atIndex = email.indexOf("@");
   if (atIndex <= 0) return REDACTED;

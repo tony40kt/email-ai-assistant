@@ -112,7 +112,7 @@ test("MicrosoftOAuthProvider.buildAuthorizeUrl targets Microsoft auth endpoint",
   const provider = new MicrosoftOAuthProvider({ ...BASE_CONFIG, httpClient: makeHttpMock({}) });
   const url = provider.buildAuthorizeUrl({ state: "st" });
 
-  assert.ok(url.includes("login.microsoftonline.com"));
+  assert.ok(url.startsWith("https://login.microsoftonline.com/"));
   assert.ok(url.includes("state=st"));
 });
 
