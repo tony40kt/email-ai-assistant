@@ -48,6 +48,8 @@ body:
         - [ ] 功能可正常使用
         - [ ] 已有驗收方式
         - [ ] 文件已更新
+        - [ ] 無敏感資訊寫入 Repo/Log（Token、金鑰、個資）
+        - [ ] 若涉及第三方資料外送，已提供告知與同意流程
     validations:
       required: true
   - type: textarea
@@ -55,4 +57,3 @@ body:
     attributes:
       label: 相關備註
       description: 相依項、風險、API 限制等
-

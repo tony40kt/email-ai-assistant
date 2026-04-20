@@ -171,7 +171,7 @@
 - **DoD**：
   - [ ] 不可在 Repo/Log 中找到敏感資訊
   - [ ] 權限與資料使用有文件記錄
-- **相關備註**：此 Issue 必須在 MVP 上線前完成。
+- **相關備註**：此 Issue 必須在 MVP 上線前完成；治理基線文件為 `docs/SECURITY_PRIVACY_GOVERNANCE.md`。
 
 ## Issue 12
 - **Title**：\[TASK\] 測試策略與品質檢查（分類/推送/翻譯）
@@ -261,4 +261,3 @@
 - `area:qa`
 - `area:workflow`
 - `area:docs`
-

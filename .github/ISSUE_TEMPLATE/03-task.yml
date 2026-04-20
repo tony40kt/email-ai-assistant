@@ -38,10 +38,11 @@ body:
       placeholder: |
         - [ ] 工作項目全數完成
         - [ ] 驗收條件已確認
+        - [ ] 無敏感資訊寫入 Repo/Log（Token、金鑰、個資）
+        - [ ] 權限與資料使用方式已有文件記錄
     validations:
       required: true
   - type: textarea
     id: notes
     attributes:
       label: 相關備註
-
