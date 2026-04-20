@@ -16,12 +16,27 @@ class MailSyncError extends Error {
   }
 }
 
-const asArray = (value) => Array.isArray(value) ? value : [];
+const asArray = (value) => {
+  if (value == null) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+};
+
+const normalizeRecipient = (recipient) => {
+  if (recipient == null) {
+    return "";
+  }
+  if (typeof recipient === "object") {
+    return String(recipient.email || recipient.address || recipient.value || "");
+  }
+  return String(recipient);
+};
 
 const mapEmailModel = (source = {}) => ({
   id: String(source.id || ""),
   sender: String(source.sender || source.from || ""),
-  recipients: asArray(source.recipients || source.to).map((v) => String(v)),
+  recipients: asArray(source.recipients || source.to).map(normalizeRecipient).filter(Boolean),
   subject: String(source.subject || ""),
   isRead: Boolean(source.isRead ?? source.read),
   receivedAt: source.receivedAt || source.date || null
@@ -51,8 +66,8 @@ const syncEmails = async ({
 
   const state = await storage.loadState();
   const syncState = state || {};
-  const sinceMarker = syncState.lastSyncToken || syncState.lastSyncedAt || null;
-  let cursor = null;
+  const sinceMarker = syncState.syncSinceMarker || syncState.lastSyncToken || syncState.lastSyncedAt || null;
+  let cursor = syncState.syncCursor || null;
   let pagesLoaded = 0;
   let totalEmails = 0;
   let latestSyncToken = syncState.lastSyncToken || null;
@@ -92,19 +107,31 @@ const syncEmails = async ({
     }
   }
 
+  const hasMore = Boolean(cursor);
   const syncCompletedAt = new Date().toISOString();
   const nextSinceMarker = latestSyncToken || syncCompletedAt;
-  await storage.saveState({
-    lastSyncToken: latestSyncToken || null,
-    lastSyncedAt: syncCompletedAt
-  });
+  const nextState = hasMore
+    ? {
+        ...syncState,
+        syncCursor: cursor,
+        syncSinceMarker: sinceMarker
+      }
+    : {
+        ...syncState,
+        lastSyncToken: latestSyncToken || null,
+        lastSyncedAt: syncCompletedAt,
+        syncCursor: null,
+        syncSinceMarker: null
+      };
+
+  await storage.saveState(nextState);
 
   return {
     totalEmails,
     pagesLoaded,
-    hasMore: Boolean(cursor),
+    hasMore,
     lastSyncToken: latestSyncToken || null,
-    sinceMarker: nextSinceMarker
+    sinceMarker: hasMore ? sinceMarker : nextSinceMarker
   };
 };
 

@@ -41,6 +41,28 @@ test("mapEmailModel maps required mail fields", () => {
   });
 });
 
+test("mapEmailModel supports single and object recipient inputs", () => {
+  assert.deepEqual(
+    mapEmailModel({
+      id: "m2",
+      sender: "sender@example.com",
+      recipients: "one@example.com",
+      subject: "single"
+    }).recipients,
+    ["one@example.com"]
+  );
+
+  assert.deepEqual(
+    mapEmailModel({
+      id: "m3",
+      sender: "sender@example.com",
+      recipients: { email: "obj@example.com" },
+      subject: "object"
+    }).recipients,
+    ["obj@example.com"]
+  );
+});
+
 test("syncEmails supports pagination and incremental sync token updates", async () => {
   const storage = createMemoryStorage({ lastSyncToken: "sync-v1" });
   const fetchCalls = [];
@@ -103,7 +125,7 @@ test("syncEmails retries retryable errors and returns retryable message when exh
   assert.equal(callCount, 2);
 });
 
-test("syncEmails persists incremental cursor even when API does not return syncToken", async () => {
+test("syncEmails stores sinceMarker as lastSyncedAt when API does not return syncToken", async () => {
   const storage = createMemoryStorage({ lastSyncToken: null });
 
   const result = await syncEmails({
@@ -119,4 +141,64 @@ test("syncEmails persists incremental cursor even when API does not return syncT
   assert.ok(result.sinceMarker.length > 0);
   assert.equal(storage.getState().lastSyncToken, null);
   assert.equal(storage.getState().lastSyncedAt, result.sinceMarker);
+});
+
+test("syncEmails preserves state and stores resume cursor when max pages are reached", async () => {
+  const storage = createMemoryStorage({
+    lastSyncToken: "sync-v1",
+    customPreference: "keep-me"
+  });
+  const calls = [];
+
+  const firstResult = await syncEmails({
+    fetchPage: async (params) => {
+      calls.push(params);
+      return {
+        emails: [{ id: "1", from: "a@x.com", to: "b@x.com", subject: "S1", read: false }],
+        nextCursor: "cursor-2",
+        syncToken: "sync-v2"
+      };
+    },
+    storage,
+    maxPagesPerSync: 1
+  });
+
+  assert.equal(firstResult.hasMore, true);
+  assert.equal(firstResult.sinceMarker, "sync-v1");
+  assert.equal(calls[0].cursor, null);
+  assert.equal(calls[0].since, "sync-v1");
+  assert.equal(storage.getState().lastSyncToken, "sync-v1");
+  assert.equal(storage.getState().syncCursor, "cursor-2");
+  assert.equal(storage.getState().syncSinceMarker, "sync-v1");
+  assert.equal(storage.getState().customPreference, "keep-me");
+});
+
+test("syncEmails resumes from stored cursor and advances markers after pagination drains", async () => {
+  const storage = createMemoryStorage({
+    lastSyncToken: "sync-v1",
+    syncCursor: "cursor-2",
+    syncSinceMarker: "sync-v1"
+  });
+  const calls = [];
+
+  const result = await syncEmails({
+    fetchPage: async (params) => {
+      calls.push(params);
+      return {
+        emails: [{ id: "2", from: "c@x.com", to: "d@x.com", subject: "S2", read: true }],
+        nextCursor: null,
+        syncToken: "sync-v2"
+      };
+    },
+    storage,
+    maxPagesPerSync: 1
+  });
+
+  assert.equal(calls[0].cursor, "cursor-2");
+  assert.equal(calls[0].since, "sync-v1");
+  assert.equal(result.hasMore, false);
+  assert.equal(result.lastSyncToken, "sync-v2");
+  assert.equal(storage.getState().lastSyncToken, "sync-v2");
+  assert.equal(storage.getState().syncCursor, null);
+  assert.equal(storage.getState().syncSinceMarker, null);
 });
