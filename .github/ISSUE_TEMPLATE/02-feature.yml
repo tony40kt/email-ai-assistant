@@ -1,0 +1,58 @@
+name: FEATURE
+description: 新功能需求（可直接對應開發工作）
+title: "[FEATURE] "
+labels:
+  - type:feature
+body:
+  - type: input
+    id: purpose
+    attributes:
+      label: 目的
+      description: 為什麼要做這個功能？
+      placeholder: 例：讓使用者可依規則自動分類郵件
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 功能範圍
+      description: 描述功能輸入、處理、輸出
+    validations:
+      required: true
+  - type: textarea
+    id: workitems
+    attributes:
+      label: 工作項目
+      placeholder: |
+        - [ ] 任務 1
+        - [ ] 任務 2
+        - [ ] 任務 3
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: DoD（完成定義）
+      placeholder: |
+        - [ ] 功能可正常使用
+        - [ ] 已有驗收方式
+        - [ ] 文件已更新
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 相關備註
+      description: 相依項、風險、API 限制等
+

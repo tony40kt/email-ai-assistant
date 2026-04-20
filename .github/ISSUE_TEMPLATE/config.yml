@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用說明（README）
+    url: https://github.com/tony40kt/email-ai-assistant/blob/main/README.md
+    about: 先閱讀專案目標與流程再開 Issue
+  - name: Issue 設計總表
+    url: https://github.com/tony40kt/email-ai-assistant/blob/main/docs/ISSUES_DESIGN.md
+    about: 參考完整 Issue 規格與優先順序
+

@@ -1,0 +1,50 @@
+name: EPIC
+description: 用於大型目標與跨多個子任務的規劃
+title: "[EPIC] "
+labels:
+  - type:epic
+body:
+  - type: input
+    id: objective
+    attributes:
+      label: 目的
+      description: 這個 EPIC 的最終目標是什麼？
+      placeholder: 例：完成 iOS 郵件分類 MVP
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: checkboxes
+    id: workitems
+    attributes:
+      label: 工作項目
+      description: 勾選代表你已先拆出主要工作
+      options:
+        - label: 已列出主要子任務與依賴關係
+        - label: 已標記高風險工作
+        - label: 已設定階段性里程碑
+  - type: textarea
+    id: dod
+    attributes:
+      label: DoD（完成定義）
+      description: 請明確寫出何種狀態可視為完成
+      placeholder: |
+        - 子任務皆完成且驗收通過
+        - 文件已更新
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 相關備註
+      description: 風險、限制、依賴、參考資料
+
