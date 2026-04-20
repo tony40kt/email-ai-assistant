@@ -50,6 +50,9 @@ jobs:
             // 1) the next `## Issue N` block,
             // 2) the labels summary section, or
             // 3) end-of-file.
+            // NOTE: `(?![\s\S])` matches true EOF. We cannot use `$` here because the `m` flag
+            // (required for `^` to anchor at line starts) also makes `$` match line endings,
+            // which would truncate each block to its first line.
             const issueBlockPattern = `^## Issue \\d+\\n([\\s\\S]*?)(?=^## Issue \\d+\\n|^---\\n\\n${LABEL_SECTION_HEADER}|(?![\\s\\S]))`;
             const issueRegex = new RegExp(
               issueBlockPattern,
