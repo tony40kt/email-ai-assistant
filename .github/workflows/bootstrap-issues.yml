@@ -1,0 +1,172 @@
+name: Bootstrap Planned Issues
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create labels and planned issues from docs/ISSUES_DESIGN.md
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const path = require("path");
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const designPath = path.join(process.env.GITHUB_WORKSPACE, "docs", "ISSUES_DESIGN.md");
+            const content = fs.readFileSync(designPath, "utf8");
+            const LABEL_SECTION_HEADER = "## 建議 Labels 清單（先建立）";
+            const LABEL_EXISTS_STATUS = 422;
+
+            const unescape = (value = "") => value.replace(/\\\[/g, "[").replace(/\\\]/g, "]").trim();
+
+            const extractField = (block, fieldName) => {
+              const match = block.match(new RegExp(`- \\*\\*${fieldName}\\*\\*：(.+)`));
+              return unescape(match ? match[1] : "");
+            };
+
+            const extractChecklist = (block, startField, endField) => {
+              const start = block.indexOf(`- **${startField}**：`);
+              if (start < 0) return [];
+              const fromStart = block.slice(start);
+              const end = endField ? fromStart.indexOf(`- **${endField}**：`) : -1;
+              const section = end >= 0 ? fromStart.slice(0, end) : fromStart;
+
+              return [...section.matchAll(/^\s*- \[ \] (.+)$/gm)].map((m) => unescape(m[1]));
+            };
+
+            const issueBlocks = [];
+            // Match each `## Issue N` block and stop before:
+            // 1) the next `## Issue N` block,
+            // 2) the labels summary section, or
+            // 3) end-of-file.
+            const issueBlockPattern = `^## Issue \\d+\\n([\\s\\S]*?)(?=^## Issue \\d+\\n|^---\\n\\n${LABEL_SECTION_HEADER}|$)`;
+            const issueRegex = new RegExp(
+              issueBlockPattern,
+              "gm"
+            );
+            let issueMatch;
+            while ((issueMatch = issueRegex.exec(content)) !== null) {
+              issueBlocks.push(issueMatch[1]);
+            }
+
+            const issues = issueBlocks.map((block) => {
+              const labelsLine = extractField(block, "Labels");
+              const labels = [...labelsLine.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+              const title = extractField(block, "Title");
+              if (title && labels.length === 0) {
+                throw new Error(`No labels found for issue spec: ${title}`);
+              }
+              return {
+                title,
+                bodyType: extractField(block, "Body Type"),
+                priority: extractField(block, "Priority"),
+                labels,
+                purpose: extractField(block, "目的"),
+                workitems: extractChecklist(block, "工作項目", "DoD"),
+                dod: extractChecklist(block, "DoD", "相關備註"),
+                notes: extractField(block, "相關備註")
+              };
+            }).filter((issue) => issue.title);
+
+            if (issues.length === 0) {
+              throw new Error("No issue specs found in docs/ISSUES_DESIGN.md");
+            }
+
+            const labelColorMap = {
+              "type:epic": "5319e7",
+              "type:feature": "1d76db",
+              "type:task": "0e8a16",
+              "type:bug": "d73a4a",
+              "priority:P0": "b60205",
+              "priority:P1": "d93f0b",
+              "priority:P2": "fbca04",
+              "priority:P3": "c2e0c6",
+              "auto:implement": "0052cc"
+            };
+
+            const labelSection = content.split(LABEL_SECTION_HEADER)[1] || "";
+            const repoLabels = new Set([...labelSection.matchAll(/- `([^`]+)`/g)].map((m) => m[1]));
+            repoLabels.add("auto:implement");
+
+            for (const name of repoLabels) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name,
+                  color: labelColorMap[name] || "ededed",
+                  description: `Auto-managed label: ${name}`
+                });
+              } catch (error) {
+                const status = error?.status;
+                if (status === LABEL_EXISTS_STATUS) {
+                  core.info(`Label already exists: ${name}`);
+                  continue;
+                }
+
+                core.error(`Failed to create label "${name}" (status: ${status || "unknown"}): ${error.message}. Aborting bootstrap.`);
+                throw error;
+              }
+            }
+
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: "all",
+              per_page: 100
+            });
+            const existingTitles = new Set(
+              existing
+                .filter((item) => !item.pull_request)
+                .map((item) => item.title)
+            );
+
+            for (const spec of issues) {
+              if (existingTitles.has(spec.title)) {
+                core.info(`Skip existing issue: ${spec.title}`);
+                continue;
+              }
+
+              const body = [
+                `## Body Type`,
+                spec.bodyType || "N/A",
+                ``,
+                `## Priority`,
+                spec.priority || "N/A",
+                ``,
+                `## 目的`,
+                spec.purpose || "",
+                ``,
+                `## 工作項目`,
+                ...(spec.workitems.length > 0
+                  ? spec.workitems.map((item) => `- [ ] ${item}`)
+                  : ["- [ ] 待補充"]),
+                ``,
+                `## DoD（完成定義）`,
+                ...(spec.dod.length > 0
+                  ? spec.dod.map((item) => `- [ ] ${item}`)
+                  : ["- [ ] 待補充"]),
+                ``,
+                `## 相關備註`,
+                spec.notes || ""
+              ].join("\n");
+
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title: spec.title,
+                body,
+                labels: spec.labels
+              });
+            }

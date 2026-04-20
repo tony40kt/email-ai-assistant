@@ -1,0 +1,114 @@
+name: Issue Auto PR
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: issue-auto-pr-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  verify-actor:
+    if: github.event.label.name == 'auto:implement'
+    runs-on: ubuntu-latest
+    outputs:
+      trusted: ${{ steps.check-actor.outputs.trusted }}
+    steps:
+      - name: Verify labeling actor is trusted
+        id: check-actor
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const username = context.payload.sender.login;
+            const trustedPermissions = new Set(["admin", "maintain", "write"]);
+
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner,
+                repo,
+                username
+              });
+              const trusted = trustedPermissions.has(data.permission);
+              core.setOutput("trusted", trusted ? "true" : "false");
+              if (!trusted) {
+                core.info(`Actor ${username} is not trusted (permission: ${data.permission}).`);
+              }
+            } catch (error) {
+              core.info(`Could not determine collaborator permission for ${username}: ${error.message}`);
+              core.setOutput("trusted", "false");
+            }
+
+  create-pr:
+    needs: verify-actor
+    if: github.event.label.name == 'auto:implement' && needs.verify-actor.outputs.trusted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build branch metadata
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.payload.issue.number;
+            const title = context.payload.issue.title || "issue";
+            const slug = title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "")
+              .slice(0, 40) || "task";
+            core.setOutput("branch", `auto/issue-${number}-${slug}`);
+            core.setOutput("file", `issues/auto/issue-${number}.md`);
+
+      - name: Prepare issue branch content
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_FILE: ${{ steps.meta.outputs.file }}
+        run: |
+          mkdir -p "$(dirname "$ISSUE_FILE")"
+          {
+            echo "# Issue #$ISSUE_NUMBER"
+            echo
+            echo "## Title"
+            echo "$ISSUE_TITLE"
+            echo
+            echo "## Source"
+            echo "$ISSUE_URL"
+            echo
+            echo "## Description"
+            echo "${ISSUE_BODY:-（無內容）}"
+            echo
+            echo "## Development Checklist"
+            echo "- [ ] Analyze requirement"
+            echo "- [ ] Implement changes"
+            echo "- [ ] Run validation"
+          } > "$ISSUE_FILE"
+
+      - name: Create pull request from issue
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.meta.outputs.branch }}
+          commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
+          title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
+          body: |
+            Auto-generated from issue #${{ github.event.issue.number }}.
+
+            Source Issue: ${{ github.event.issue.html_url }}
+
+            ## Included
+            - Initialized issue working file `${{ steps.meta.outputs.file }}`
+
+            Closes #${{ github.event.issue.number }}

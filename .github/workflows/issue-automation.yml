@@ -30,7 +30,8 @@ jobs:
               "priority:P0","priority:P1","priority:P2","priority:P3",
               "area:project","area:ios","area:backend","area:oauth","area:mail-sync",
               "area:classification","area:label","area:search","area:notification","area:scheduler",
-              "area:translation","area:ui","area:i18n","area:security","area:qa","area:workflow","area:docs"
+              "area:translation","area:ui","area:i18n","area:security","area:qa","area:workflow","area:docs",
+              "auto:implement"
             ];
             const labelColors = {
               "type:epic": "5319e7",
@@ -40,7 +41,8 @@ jobs:
               "priority:P0": "b60205",
               "priority:P1": "d93f0b",
               "priority:P2": "fbca04",
-              "priority:P3": "c2e0c6"
+              "priority:P3": "c2e0c6",
+              "auto:implement": "0052cc"
             };
 
             // Ensure base labels exist in repository
