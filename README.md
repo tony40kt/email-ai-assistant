@@ -66,6 +66,7 @@
 本 repo 已包含：
 
 - `docs/ISSUES_DESIGN.md`：完整 Issue 規劃清單（Title、Type、Priority、Labels、目的、工作項目、DoD、備註）
+- `docs/OAUTH_IOS_IMPLEMENTATION.md`：iOS OAuth（Gmail 優先）登入流程、Outlook 擴充點與 Token 安全策略
 - `.github/ISSUE_TEMPLATE/*.yml`：可直接在 GitHub 網頁新增 Issue 的表單
 - `.github/workflows/issue-automation.yml`：Issue 自動處理流程（標籤、優先級、檢查提示）
 - `.github/workflows/bootstrap-issues.yml`：一鍵解析 `docs/ISSUES_DESIGN.md` 並建立對應的全套 Issues
