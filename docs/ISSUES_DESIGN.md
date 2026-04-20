@@ -35,7 +35,7 @@
 - **DoD**：
   - [ ] 可成功登入並取得郵件讀取權限
   - [ ] Token 不出現在前端日誌
-- **相關備註**：免費方案先以 Gmail 優先，Outlook 可次階段。
+- **相關備註**：免費方案先以 Gmail 優先，Outlook 可次階段。實作規格見 `docs/OAUTH_IOS_IMPLEMENTATION.md`。
 
 ## Issue 3
 - **Title**：\[FEATURE\] 郵件同步與基本資料模型建立
