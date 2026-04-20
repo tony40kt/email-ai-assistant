@@ -102,6 +102,8 @@ jobs:
           } > "$ISSUE_FILE"
 
       - name: Select PR automation token
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ -n "$AUTO_IMPLEMENT_TOKEN" ]; then
             echo "PR_AUTOMATION_TOKEN=$AUTO_IMPLEMENT_TOKEN" >> "$GITHUB_ENV"
