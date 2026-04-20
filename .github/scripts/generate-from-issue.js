@@ -6,7 +6,7 @@ const path = require('path');
 
 function readIssue(issuePathArg) {
   if (!issuePathArg) {
-    throw new Error('Missing path to issue JSON (argv[0]).');
+    throw new Error('Missing path to issue JSON (first argument).');
   }
 
   const issuePath = path.resolve(process.cwd(), issuePathArg);
@@ -60,7 +60,7 @@ function generateFallbackMarkdown(issue) {
 }
 
 function main() {
-  const issue = readIssue(process.argv.slice(2)[0]);
+  const issue = readIssue(process.argv[2]);
   const outDir = path.join(process.cwd(), '.autogen');
   fs.mkdirSync(outDir, { recursive: true });
 
