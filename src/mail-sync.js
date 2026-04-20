@@ -3,6 +3,7 @@
 const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_MAX_PAGES_PER_SYNC = 4;
 const DEFAULT_MAX_RETRIES = 2;
+const RETRYABLE_ERROR_CODES = new Set(["ETIMEDOUT", "ECONNRESET"]);
 
 class MailSyncError extends Error {
   constructor(message, options = {}) {
@@ -25,7 +26,7 @@ const mapEmailModel = (source = {}) => ({
   receivedAt: source.receivedAt || source.date || null
 });
 
-const isRetryableError = (error) => Boolean(error && (error.retryable || error.code === "ETIMEDOUT" || error.code === "ECONNRESET"));
+const isRetryableError = (error) => Boolean(error && (error.retryable || RETRYABLE_ERROR_CODES.has(error.code)));
 
 const syncEmails = async ({
   fetchPage,
@@ -47,7 +48,7 @@ const syncEmails = async ({
   let cursor = null;
   let pagesLoaded = 0;
   let totalEmails = 0;
-  let nextSyncToken = since;
+  let latestSyncToken = since;
 
   while (pagesLoaded < maxPagesPerSync) {
     let response;
@@ -77,7 +78,7 @@ const syncEmails = async ({
 
     pagesLoaded += 1;
     cursor = response?.nextCursor || null;
-    nextSyncToken = response?.syncToken || nextSyncToken;
+    latestSyncToken = response?.syncToken || latestSyncToken;
 
     if (!cursor) {
       break;
@@ -85,7 +86,7 @@ const syncEmails = async ({
   }
 
   await storage.saveState({
-    lastSyncToken: nextSyncToken || since,
+    lastSyncToken: latestSyncToken || since,
     lastSyncedAt: new Date().toISOString()
   });
 
@@ -93,7 +94,7 @@ const syncEmails = async ({
     totalEmails,
     pagesLoaded,
     hasMore: Boolean(cursor),
-    lastSyncToken: nextSyncToken || since
+    lastSyncToken: latestSyncToken || since
   };
 };
 
