@@ -74,6 +74,59 @@
 - `.github/workflows/bootstrap-issues.yml`：一鍵解析 `docs/ISSUES_DESIGN.md` 並建立對應的全套 Issues
 - `.github/workflows/issue-auto-pr.yml`：Issue 具備 `auto:implement` 後自動指派 Copilot（由 Copilot cloud agent 產生實作 PR）
 
+### 5.1 技術棧基線（免費資源優先）
+
+- **前端（iOS 首發）**：React Native + Expo（同一套程式可保留 Android/Web 擴充彈性）
+- **後端 API**：Node.js（優先部署 Vercel / Render 免費層）
+- **資料庫**：Supabase 免費層
+- **郵件 API**：Gmail API（MVP），後續擴充 Microsoft Graph
+- **翻譯**：LibreTranslate（先公有節點，必要時再自架；公有節點可能有速率限制與穩定性波動，限制值依節點公告）
+
+### 5.2 環境變數與 Secrets 清單
+
+請參考根目錄 `.env.example`，本機開發使用 `.env`，正式憑證一律放 GitHub Secrets。
+
+| 變數 | 用途 | 本機 `.env` | GitHub Secrets |
+| --- | --- | --- | --- |
+| `NODE_ENV` | 執行環境（development/production） | ✅ | - |
+| `APP_BASE_URL` | App/前端連線基礎網址 | ✅ | - |
+| `API_BASE_URL` | 後端 API 基礎網址 | ✅ | - |
+| `GMAIL_CLIENT_ID` | Gmail OAuth Client ID | ✅ | ✅ |
+| `GMAIL_CLIENT_SECRET` | Gmail OAuth Client Secret | ✅ | ✅ |
+| `GMAIL_REDIRECT_URI` | Gmail OAuth Redirect URI | ✅ | ✅ |
+| `SUPABASE_URL` | Supabase 專案 URL | ✅ | ✅ |
+| `SUPABASE_ANON_KEY` | Supabase 公開金鑰 | ✅ | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 服務金鑰（僅後端） | ❌ | ✅ |
+| `LIBRETRANSLATE_API_URL` | 翻譯服務 URL | ✅ | ✅ |
+| `LIBRETRANSLATE_API_KEY` | 翻譯服務金鑰（若需要） | ✅ | ✅ |
+
+> `SUPABASE_SERVICE_ROLE_KEY` 權限高，僅限後端安全環境使用，禁止放入前端或客戶端程式。
+
+### 5.3 分支策略與命名規範（簡化版）
+
+- `main`：穩定分支，僅接受 PR 合併
+- 功能分支：`feat/<issue-number>-<short-name>`
+- 任務分支：`task/<issue-number>-<short-name>`
+- 修補分支：`fix/<issue-number>-<short-name>`
+- 文件分支：`docs/<issue-number>-<short-name>`
+
+範例：
+- `feat/12-oauth-login`
+- `task/1-project-baseline`
+- `docs/14-readme-guide`
+
+### 5.4 Issue / PR 流程
+
+1. 建立 Issue（使用 Epic/Feature/Task/Bug 模板）
+2. 填寫 Priority、工作項目、DoD
+3. 建立對應分支（依 5.3 命名）
+4. 完成變更後發 PR，標題建議：`[type] #<issue-number> <summary>`
+5. PR 描述至少包含：目的、變更摘要、驗證方式、風險
+6. 合併前確認：
+   - 關聯 Issue 已標註
+   - 敏感資訊未進版控
+   - 文件有同步更新（若流程/設定有改動）
+
 ## 6. 給「只用 GitHub 網頁版」的操作步驟
 
 1. 到 **Issues** 頁面點選 **New issue**
