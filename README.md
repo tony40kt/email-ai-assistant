@@ -71,6 +71,13 @@
 - `.github/workflows/bootstrap-issues.yml`：一鍵解析 `docs/ISSUES_DESIGN.md` 並建立對應的全套 Issues
 - `.github/workflows/issue-auto-pr.yml`：Issue 加上 `auto:implement` 後自動建立分支、推送變更並產生 PR
 
+### 5.1 Auto PR 必要設定（避免 `GitHub Actions is not permitted to create or approve pull requests`）
+
+- 到 Repository → **Settings** → **Secrets and variables** → **Actions**
+- 新增 secret：`AUTO_IMPLEMENT_TOKEN`
+- 值請使用具有 repo 權限的 PAT（建議最小權限：`contents: write`、`pull requests: write`、`issues: write`）
+- `issue-auto-pr.yml` 會優先使用 `AUTO_IMPLEMENT_TOKEN` 建立 PR；若未設定才回退到 `GITHUB_TOKEN`
+
 ## 6. 給「只用 GitHub 網頁版」的操作步驟
 
 1. 到 **Issues** 頁面點選 **New issue**

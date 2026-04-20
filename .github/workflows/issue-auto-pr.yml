@@ -4,6 +4,9 @@ on:
   issues:
     types: [labeled]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
   pull-requests: write
@@ -99,7 +102,8 @@ jobs:
       - name: Create pull request from issue
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.AUTO_IMPLEMENT_TOKEN != '' && secrets.AUTO_IMPLEMENT_TOKEN || secrets.GITHUB_TOKEN }}
+          branch-token: ${{ secrets.AUTO_IMPLEMENT_TOKEN != '' && secrets.AUTO_IMPLEMENT_TOKEN || secrets.GITHUB_TOKEN }}
           branch: ${{ steps.meta.outputs.branch }}
           commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
           title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
