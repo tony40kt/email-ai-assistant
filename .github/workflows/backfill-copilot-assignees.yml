@@ -33,6 +33,7 @@ jobs:
 
             for (const issue of issues) {
               if (issue.pull_request) {
+                skipped += 1;
                 continue;
               }
 
