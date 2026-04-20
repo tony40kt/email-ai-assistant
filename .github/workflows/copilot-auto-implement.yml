@@ -2,7 +2,7 @@ name: Copilot Auto Implement
 
 on:
   issues:
-    types: [opened, reopened, edited, labeled, unlabeled]
+    types: [opened, reopened, edited, labeled]
   workflow_dispatch:
     inputs:
       backfill:
@@ -32,7 +32,8 @@ jobs:
             const repo = context.repo.repo;
             const issue = context.payload.issue;
             const issue_number = issue.number;
-            const actor = context.payload.sender?.login || "";
+            const actorLogin = context.payload.sender?.login || "";
+            const actor = actorLogin.toLowerCase();
             const labels = (issue.labels || []).map((l) => l.name);
 
             if (issue.state !== "open") {
@@ -45,7 +46,7 @@ jobs:
               return;
             }
 
-            const trustedActors = new Set(["github-actions[bot]", "Copilot", "copilot"]);
+            const trustedActors = new Set(["github-actions[bot]", "copilot"]);
             const trustedPermissions = new Set(["admin", "maintain", "write"]);
 
             let trusted = trustedActors.has(actor);
@@ -54,16 +55,16 @@ jobs:
                 const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
                   owner,
                   repo,
-                  username: actor
+                  username: actorLogin
                 });
                 trusted = trustedPermissions.has(data.permission);
               } catch (error) {
-                core.info(`Could not resolve collaborator permission for ${actor}: ${error.message}`);
+                core.info(`Could not resolve collaborator permission for ${actorLogin}: ${error.message}`);
               }
             }
 
             if (!trusted) {
-              core.warning(`Actor ${actor} is not trusted. Skipping automation for issue #${issue_number}.`);
+              core.warning(`Actor ${actorLogin} is not trusted. Skipping automation for issue #${issue_number}.`);
               return;
             }
 

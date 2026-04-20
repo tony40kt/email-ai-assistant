@@ -73,7 +73,7 @@
 - `.github/ISSUE_TEMPLATE/*.yml`：可直接在 GitHub 網頁新增 Issue 的表單
 - `.github/workflows/issue-automation.yml`：Issue 自動處理流程（標籤、優先級、檢查提示）
 - `.github/workflows/bootstrap-issues.yml`：一鍵解析 `docs/ISSUES_DESIGN.md` 並建立對應的全套 Issues
-- `.github/workflows/copilot-auto-implement.yml`：Issue 具備 `auto:implement` 後自動指派 Copilot（由 Copilot cloud agent 產生實作 PR，含 backfill 防呆）
+- `.github/workflows/copilot-auto-implement.yml`：Issue 具備 `auto:implement` 後自動指派 Copilot（由 Copilot cloud agent 產生實作 PR，含 backfill 補填機制與防護）
 - `.github/workflows/sync-linked-issue-status.yml`：PR 建立/更新時同步 linked issues 的 Project Status 為 `In Progress`
 
 ### 5.1 技術棧基線（免費資源優先）
