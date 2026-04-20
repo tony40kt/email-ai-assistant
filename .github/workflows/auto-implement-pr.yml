@@ -67,7 +67,13 @@ jobs:
       - name: Install dependencies for generator
         if: steps.verify.outputs.trusted == 'true'
         run: |
-          npm ci || true
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install --no-audit --no-fund
+          else
+            echo "No package manifest found; skipping dependency install."
+          fi
       - name: Generate files from issue (LLM)
         if: steps.verify.outputs.trusted == 'true'
         run: |
