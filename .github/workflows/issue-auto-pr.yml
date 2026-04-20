@@ -2,7 +2,7 @@ name: Issue Auto PR
 
 on:
   issues:
-    types: [labeled]
+    types: [opened, reopened, edited, labeled, assigned]
 
 permissions:
   issues: write
@@ -13,12 +13,12 @@ concurrency:
 
 jobs:
   verify-actor:
-    if: github.event.label.name == 'auto:implement'
+    if: contains(github.event.issue.labels.*.name, 'auto:implement')
     runs-on: ubuntu-latest
     outputs:
       trusted: ${{ steps.check-actor.outputs.trusted }}
     steps:
-      - name: Verify labeling actor is trusted
+      - name: Verify issue event actor is trusted
         id: check-actor
         uses: actions/github-script@v7
         with:
@@ -27,6 +27,13 @@ jobs:
             const repo = context.repo.repo;
             const username = context.payload.sender.login;
             const trustedPermissions = new Set(["admin", "maintain", "write"]);
+            const trustedAutomationActors = new Set(["github-actions[bot]"]);
+
+            if (trustedAutomationActors.has(username)) {
+              core.info(`Actor ${username} is trusted automation.`);
+              core.setOutput("trusted", "true");
+              return;
+            }
 
             try {
               const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
@@ -46,7 +53,7 @@ jobs:
 
   assign-copilot:
     needs: verify-actor
-    if: github.event.label.name == 'auto:implement' && needs.verify-actor.outputs.trusted == 'true'
+    if: contains(github.event.issue.labels.*.name, 'auto:implement') && needs.verify-actor.outputs.trusted == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Assign Copilot to issue

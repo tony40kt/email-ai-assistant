@@ -69,7 +69,7 @@
 - `.github/ISSUE_TEMPLATE/*.yml`：可直接在 GitHub 網頁新增 Issue 的表單
 - `.github/workflows/issue-automation.yml`：Issue 自動處理流程（標籤、優先級、檢查提示）
 - `.github/workflows/bootstrap-issues.yml`：一鍵解析 `docs/ISSUES_DESIGN.md` 並建立對應的全套 Issues
-- `.github/workflows/issue-auto-pr.yml`：Issue 加上 `auto:implement` 後自動建立分支、推送變更並產生 PR
+- `.github/workflows/issue-auto-pr.yml`：Issue 具備 `auto:implement` 後自動指派 Copilot（由 Copilot cloud agent 產生實作 PR）
 
 ## 6. 給「只用 GitHub 網頁版」的操作步驟
 
@@ -78,7 +78,7 @@
 3. 依表單填寫：目標、工作項目、DoD、備註
 4. 建立後，Workflow 會自動補上建議標籤與檢查留言
 5. 完成工作時，在該 Issue 勾選工作項目並更新狀態
-6. 若要自動建立開發 PR，幫該 Issue 加上 `auto:implement` 標籤
+6. 若要自動啟動 Copilot 開發流程，先確保該 Issue 已有 `auto:implement` 標籤；之後加標、更新或重新開啟該 Issue 都可觸發流程
 
 ## 7. 安全與隱私原則
 
