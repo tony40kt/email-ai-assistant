@@ -53,6 +53,8 @@ jobs:
     needs: verify-actor
     if: github.event.label.name == 'auto:implement' && needs.verify-actor.outputs.trusted == 'true'
     runs-on: ubuntu-latest
+    env:
+      AUTO_IMPLEMENT_TOKEN: ${{ secrets.AUTO_IMPLEMENT_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,11 +102,11 @@ jobs:
           } > "$ISSUE_FILE"
 
       - name: Create pull request from issue (AUTO_IMPLEMENT_TOKEN)
-        if: ${{ secrets.AUTO_IMPLEMENT_TOKEN != '' }}
+        if: ${{ env.AUTO_IMPLEMENT_TOKEN != '' }}
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.AUTO_IMPLEMENT_TOKEN }}
-          branch-token: ${{ secrets.AUTO_IMPLEMENT_TOKEN }}
+          token: ${{ env.AUTO_IMPLEMENT_TOKEN }}
+          branch-token: ${{ env.AUTO_IMPLEMENT_TOKEN }}
           branch: ${{ steps.meta.outputs.branch }}
           commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
           title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
@@ -119,11 +121,11 @@ jobs:
             Closes #${{ github.event.issue.number }}
 
       - name: Create pull request from issue (GITHUB_TOKEN fallback)
-        if: ${{ secrets.AUTO_IMPLEMENT_TOKEN == '' }}
+        if: ${{ env.AUTO_IMPLEMENT_TOKEN == '' }}
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch-token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
+          branch-token: ${{ github.token }}
           branch: ${{ steps.meta.outputs.branch }}
           commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
           title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
