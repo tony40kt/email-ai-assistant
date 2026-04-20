@@ -20,6 +20,7 @@ jobs:
     env:
       STATUS_FIELD_NAME: Status
       IN_PROGRESS_OPTION_NAME: In Progress
+      COPILOT_BRANCH_PREFIX: copilot/
     steps:
       - name: Conditionally assign Copilot and sync linked issue status
         uses: actions/github-script@v8
@@ -31,6 +32,7 @@ jobs:
             const headRef = context.payload.pull_request.head.ref || "";
             const statusFieldName = (process.env.STATUS_FIELD_NAME || "Status").trim().toLowerCase();
             const inProgressOptionName = (process.env.IN_PROGRESS_OPTION_NAME || "In Progress").trim().toLowerCase();
+            const copilotBranchPrefix = process.env.COPILOT_BRANCH_PREFIX || "copilot/";
 
             const query = `
               query($owner: String!, $repo: String!, $prNumber: Int!) {
@@ -85,7 +87,7 @@ jobs:
             const hasAutoImplementIssue = linkedIssues.some((issue) =>
               (issue.labels?.nodes || []).some((label) => label.name === "auto:implement")
             );
-            const shouldAssignCopilot = headRef.startsWith("copilot/") || hasAutoImplementIssue;
+            const shouldAssignCopilot = headRef.startsWith(copilotBranchPrefix) || hasAutoImplementIssue;
 
             if (shouldAssignCopilot) {
               const prAssignees = (context.payload.pull_request.assignees || []).map((a) => a.login.toLowerCase());

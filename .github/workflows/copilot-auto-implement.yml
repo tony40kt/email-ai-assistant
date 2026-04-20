@@ -45,7 +45,7 @@ jobs:
               return;
             }
 
-            const trustedActors = new Set(["github-actions[bot]", "Copilot"]);
+            const trustedActors = new Set(["github-actions[bot]", "Copilot", "copilot"]);
             const trustedPermissions = new Set(["admin", "maintain", "write"]);
 
             let trusted = trustedActors.has(actor);
