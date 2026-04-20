@@ -77,8 +77,7 @@
 - **後端 API**：Node.js（優先部署 Vercel / Render 免費層）
 - **資料庫**：Supabase 免費層
 - **郵件 API**：Gmail API（MVP），後續擴充 Microsoft Graph
-- **翻譯**：LibreTranslate（先公有節點，必要時再自架）
-- **翻譯節點提醒**：公有節點可能有速率限制與穩定性波動（限制值依節點公告），MVP 可先用，正式環境建議改自有或受控節點
+- **翻譯**：LibreTranslate（先公有節點，必要時再自架；公有節點可能有速率限制與穩定性波動，限制值依節點公告）
 
 ### 5.2 環境變數與 Secrets 清單
 
@@ -97,6 +96,8 @@
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase 服務金鑰（僅後端） | ❌ | ✅ |
 | `LIBRETRANSLATE_API_URL` | 翻譯服務 URL | ✅ | ✅ |
 | `LIBRETRANSLATE_API_KEY` | 翻譯服務金鑰（若需要） | ✅ | ✅ |
+
+> `SUPABASE_SERVICE_ROLE_KEY` 權限高，僅限後端安全環境使用，禁止放入前端或客戶端程式。
 
 ### 5.3 分支策略與命名規範（簡化版）
 
