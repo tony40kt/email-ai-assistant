@@ -27,7 +27,7 @@ const normalizeRecipient = (recipient) => {
   if (recipient === null || recipient === undefined) {
     return "";
   }
-  if (typeof recipient === "object" && recipient !== null) {
+  if (typeof recipient === "object") {
     return String(recipient.email || recipient.address || recipient.value || "");
   }
   return String(recipient);

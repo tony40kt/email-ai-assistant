@@ -125,7 +125,7 @@ test("syncEmails retries retryable errors and returns retryable message when exh
   assert.equal(callCount, 2);
 });
 
-test("syncEmails stores sinceMarker as lastSyncedAt when API does not return syncToken", async () => {
+test("syncEmails persists lastSyncedAt fallback when syncToken is absent", async () => {
   const storage = createMemoryStorage({ lastSyncToken: null });
 
   const result = await syncEmails({
