@@ -101,31 +101,19 @@ jobs:
             echo "- [ ] Run validation"
           } > "$ISSUE_FILE"
 
-      - name: Create pull request from issue (AUTO_IMPLEMENT_TOKEN)
-        if: env.AUTO_IMPLEMENT_TOKEN != ''
+      - name: Select PR automation token
+        run: |
+          if [ -n "$AUTO_IMPLEMENT_TOKEN" ]; then
+            echo "PR_AUTOMATION_TOKEN=$AUTO_IMPLEMENT_TOKEN" >> "$GITHUB_ENV"
+          else
+            echo "PR_AUTOMATION_TOKEN=$GITHUB_TOKEN" >> "$GITHUB_ENV"
+          fi
+
+      - name: Create pull request from issue
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ env.AUTO_IMPLEMENT_TOKEN }}
-          branch-token: ${{ env.AUTO_IMPLEMENT_TOKEN }}
-          branch: ${{ steps.meta.outputs.branch }}
-          commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
-          title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
-          body: |
-            Auto-generated from issue #${{ github.event.issue.number }}.
-
-            Source Issue: ${{ github.event.issue.html_url }}
-
-            ## Included
-            - Initialized issue working file `${{ steps.meta.outputs.file }}`
-
-            Closes #${{ github.event.issue.number }}
-
-      - name: Create pull request from issue (GITHUB_TOKEN fallback)
-        if: env.AUTO_IMPLEMENT_TOKEN == ''
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ github.token }}
-          branch-token: ${{ github.token }}
+          token: ${{ env.PR_AUTOMATION_TOKEN }}
+          branch-token: ${{ env.PR_AUTOMATION_TOKEN }}
           branch: ${{ steps.meta.outputs.branch }}
           commit-message: "chore: initialize issue #${{ github.event.issue.number }} working branch"
           title: "chore: auto start issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
