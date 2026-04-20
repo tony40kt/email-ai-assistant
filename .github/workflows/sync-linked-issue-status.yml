@@ -95,7 +95,7 @@ jobs:
                     owner,
                     repo,
                     issue_number: prNumber,
-                    assignees: ["Copilot"]
+                    assignees: ["copilot"]
                   });
                   core.info(`Assigned Copilot to PR #${prNumber}.`);
                 } catch (error) {

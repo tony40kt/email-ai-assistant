@@ -74,7 +74,7 @@ jobs:
                   owner,
                   repo,
                   issue_number,
-                  assignees: ["Copilot"]
+                  assignees: ["copilot"]
                 });
                 core.info(`Assigned Copilot to issue #${issue_number}.`);
               } catch (error) {
@@ -146,7 +146,7 @@ Copilot auto-implement is enabled / 已啟用：
                   owner,
                   repo,
                   issue_number: issue.number,
-                  assignees: ["Copilot"]
+                  assignees: ["copilot"]
                 });
                 assigned += 1;
               } catch (error) {
