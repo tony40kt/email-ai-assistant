@@ -73,7 +73,7 @@
 
 ### 5.1 技術棧基線（免費資源優先）
 
-- **前端（iOS）**：React Native + Expo
+- **前端（iOS 首發）**：React Native + Expo（同一套程式可保留 Android/Web 擴充彈性）
 - **後端 API**：Node.js（優先部署 Vercel / Render 免費層）
 - **資料庫**：Supabase 免費層
 - **郵件 API**：Gmail API（MVP），後續擴充 Microsoft Graph
