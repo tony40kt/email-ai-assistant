@@ -44,7 +44,7 @@ const syncEmails = async ({
 
   const state = await storage.loadState();
   const syncState = state || {};
-  const since = syncState.lastSyncToken || null;
+  const since = syncState.lastSyncToken || syncState.lastSyncedAt || null;
   let cursor = null;
   let pagesLoaded = 0;
   let totalEmails = 0;
@@ -85,16 +85,18 @@ const syncEmails = async ({
     }
   }
 
+  const syncCompletedAt = new Date().toISOString();
+  const incrementalCursor = latestSyncToken || syncCompletedAt;
   await storage.saveState({
-    lastSyncToken: latestSyncToken || since,
-    lastSyncedAt: new Date().toISOString()
+    lastSyncToken: incrementalCursor,
+    lastSyncedAt: syncCompletedAt
   });
 
   return {
     totalEmails,
     pagesLoaded,
     hasMore: Boolean(cursor),
-    lastSyncToken: latestSyncToken || since
+    lastSyncToken: incrementalCursor
   };
 };
 

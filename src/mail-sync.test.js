@@ -102,3 +102,19 @@ test("syncEmails retries retryable errors and returns retryable message when exh
 
   assert.equal(callCount, 2);
 });
+
+test("syncEmails persists incremental cursor even when API does not return syncToken", async () => {
+  const storage = createMemoryStorage({ lastSyncToken: null });
+
+  const result = await syncEmails({
+    fetchPage: async () => ({
+      emails: [],
+      nextCursor: null
+    }),
+    storage
+  });
+
+  assert.equal(typeof result.lastSyncToken, "string");
+  assert.ok(result.lastSyncToken.length > 0);
+  assert.equal(storage.getState().lastSyncToken, result.lastSyncToken);
+});
