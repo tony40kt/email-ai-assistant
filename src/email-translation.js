@@ -26,8 +26,8 @@ const wait = (delayMs) => new Promise((resolve) => {
   setTimeout(resolve, delayMs);
 });
 
-const isTimeoutLikeError = (error) => Boolean(error && (error.name === "AbortError" || error.code === "ETIMEDOUT"));
-const isRetryableError = (error) => Boolean(error && (error.retryable || isTimeoutLikeError(error) || RETRYABLE_ERROR_CODES.has(error.code)));
+const isAbortError = (error) => Boolean(error && error.name === "AbortError");
+const isRetryableError = (error) => Boolean(error && (error.retryable || isAbortError(error) || RETRYABLE_ERROR_CODES.has(error.code)));
 
 const createLibreTranslateClient = ({
   apiUrl,
@@ -51,7 +51,8 @@ const createLibreTranslateClient = ({
     if (!text.trim()) return "";
 
     let retries = 0;
-    while (true) {
+    const maxAttempts = maxRetries + 1;
+    while (retries < maxAttempts) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
