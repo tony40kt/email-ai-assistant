@@ -43,7 +43,7 @@ const mapEmailModel = (source = {}) => ({
   receivedAt: source.receivedAt || source.date || null
 });
 
-const isRetryableStatus = (status) => status >= 500 || RETRYABLE_ERROR_STATUSES.has(status);
+const isRetryableStatus = (status) => (status >= 500 && status < 600) || RETRYABLE_ERROR_STATUSES.has(status);
 const isRetryableError = (error) => Boolean(error && (
   error.retryable
   || RETRYABLE_ERROR_CODES.has(error.code)

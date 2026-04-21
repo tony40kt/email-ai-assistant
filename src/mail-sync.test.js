@@ -66,10 +66,10 @@ test("mapEmailModel supports single and object recipient inputs", () => {
     mapEmailModel({
       id: "m4",
       sender: "sender@example.com",
-      recipient: "single-alias@example.com",
-      subject: "single alias"
+      recipient: "test-recipient-field@example.com",
+      subject: "recipient field alias"
     }).recipients,
-    ["single-alias@example.com"]
+    ["test-recipient-field@example.com"]
   );
 });
 
@@ -144,7 +144,29 @@ test("syncEmails retries retryable http status errors and succeeds", async () =>
       callCount += 1;
       if (callCount === 1) {
         const error = new Error("service unavailable");
-        error.status = 503;
+        error.status = 500;
+        throw error;
+      }
+      return { emails: [], nextCursor: null, syncToken: "sync-v1" };
+    },
+    storage,
+    maxRetries: 1
+  });
+
+  assert.equal(callCount, 2);
+  assert.equal(result.lastSyncToken, "sync-v1");
+});
+
+test("syncEmails retries 429 rate-limit errors and succeeds", async () => {
+  const storage = createMemoryStorage();
+  let callCount = 0;
+
+  const result = await syncEmails({
+    fetchPage: async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        const error = new Error("rate limited");
+        error.status = 429;
         throw error;
       }
       return { emails: [], nextCursor: null, syncToken: "sync-v1" };
