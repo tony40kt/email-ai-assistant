@@ -23,6 +23,12 @@ const hasAnyCondition = (conditions = {}) => (
   || toLowerTokens(conditions.keyword ?? conditions.keywords).length > 0
   || toLowerTokens(conditions.subject).length > 0
   || toLowerTokens(conditions.body).length > 0
+  || (
+    (conditions.isRead ?? conditions.read) !== undefined
+    && (conditions.isRead ?? conditions.read) !== null
+    && !(typeof (conditions.isRead ?? conditions.read) === 'string'
+      && (conditions.isRead ?? conditions.read).trim().length === 0)
+  )
 );
 
 const containsAny = (target, tokens) => {

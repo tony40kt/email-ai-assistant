@@ -369,3 +369,28 @@ test('does not match rules that have no effective conditions', () => {
   assert.deepEqual(result.email.labels, ['Keep']);
   assert.deepEqual(result.trace.matchedRuleIds, []);
 });
+
+test('matches rules that only specify isRead condition', () => {
+  const email = {
+    from: 'alerts@bank.com',
+    subject: 'Status update',
+    body: 'No keyword needed',
+    isRead: true,
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'read-only-condition',
+      name: '僅已讀條件',
+      priority: 1,
+      conditions: { isRead: true },
+      labels: ['ReadOnly']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'read-only-condition');
+  assert.deepEqual(result.email.classification.appliedLabels, ['ReadOnly']);
+});
