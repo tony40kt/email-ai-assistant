@@ -30,7 +30,7 @@ const sanitizeLogValue = (value, key = "") => {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeLogValue(item));
+    return value.map((item) => sanitizeLogValue(item, key));
   }
 
   if (typeof value === "object") {
