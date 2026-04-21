@@ -196,7 +196,7 @@
 
 範例 issue（可手動建立）：
 
-- Title: `[task] #demo auto implement pipeline`
+- Title: `[task] demo auto implement pipeline`
 - Labels: `type:task`, `priority:P2`, `area:workflow`, `auto:implement`
 - Body: 含 checklist 與 DoD，並要求 Copilot 實作可驗證的小改動。
 

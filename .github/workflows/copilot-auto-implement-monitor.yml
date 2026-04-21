@@ -19,6 +19,7 @@ on:
         default: "200"
         type: string
   schedule:
+    # Optional monitor schedule (disabled by default unless AUTO_IMPLEMENT_MONITOR_SCHEDULE_ENABLED=true).
     - cron: "20 */6 * * *"
 
 permissions:
@@ -46,16 +47,20 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const dryRun = (core.getInput("dry_run") || "false").toLowerCase() === "true";
-            const staleDays = Number(core.getInput("stale_days_without_pr") || "3");
-            const maxIssues = Number(core.getInput("max_issues") || "200");
+            const dispatchInputs = context.payload.inputs || {};
+            const dryRun = String(dispatchInputs.dry_run ?? "false").toLowerCase() === "true";
+            const staleDaysInput = Number(dispatchInputs.stale_days_without_pr ?? "3");
+            const maxIssuesInput = Number(dispatchInputs.max_issues ?? "200");
+            const staleDays = Number.isFinite(staleDaysInput) ? staleDaysInput : 3;
+            const maxIssues = Number.isFinite(maxIssuesInput) ? maxIssuesInput : 200;
             const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
             const copilotAssignee = (process.env.COPILOT_ASSIGNEE || "copilot").toLowerCase();
             const marker = process.env.MARKER || "<!-- copilot-auto-implement:managed -->";
             const warningMarker = process.env.WARNING_MARKER || "<!-- copilot-auto-implement:monitor-warning -->";
-            const staleMillis = Math.max(1, staleDays) * 24 * 60 * 60 * 1000;
+            const staleCheckEnabled = staleDays > 0;
+            const staleMillis = staleCheckEnabled ? staleDays * 24 * 60 * 60 * 1000 : 0;
 
-            core.info(`[debug] dryRun=${dryRun} staleDays=${staleDays} maxIssues=${maxIssues}`);
+            core.info(`[debug] dryRun=${dryRun} staleDays=${staleDays} staleCheckEnabled=${staleCheckEnabled} maxIssues=${maxIssues}`);
             core.info(`[debug] autoImplementLabel=${autoImplementLabel} copilotAssignee=${copilotAssignee}`);
 
             const list = await github.paginate(github.rest.issues.listForRepo, {
@@ -66,7 +71,7 @@ jobs:
               per_page: 100
             });
 
-            const issues = list.filter((item) => !item.pull_request).slice(0, Math.max(1, maxIssues));
+            const issues = list.filter((item) => !item.pull_request).slice(0, Math.max(0, maxIssues));
             core.info(`Scanning ${issues.length} open issue(s) with label '${autoImplementLabel}'.`);
 
             const results = {
@@ -192,12 +197,17 @@ jobs:
                   core.warning(`Failed to query linked PRs for #${issueNumber}: ${error.message}`);
                 }
 
-                const issueCreatedAt = new Date(issue.created_at || Date.now()).getTime();
-                const isStale = Date.now() - issueCreatedAt >= staleMillis;
-                if (linkedPrs.length === 0 && isStale && !hasWarning) {
+                const issueCreatedAt = Date.parse(issue.created_at || "");
+                if (staleCheckEnabled && !Number.isFinite(issueCreatedAt)) {
+                  core.warning(`Issue #${issueNumber} has invalid created_at; skip stale warning check.`);
+                }
+                const isStale = staleCheckEnabled
+                  && Number.isFinite(issueCreatedAt)
+                  && Date.now() - issueCreatedAt >= staleMillis;
+                if (staleCheckEnabled && linkedPrs.length === 0 && isStale && !hasWarning) {
                   const warningBody = [
                     warningMarker,
-                    `⚠️ Monitor warning: Issue 已超過 ${Math.max(1, staleDays)} 天仍未偵測到 linked PR。`,
+                    `⚠️ Monitor warning: Issue 已超過 ${staleDays} 天仍未偵測到 linked PR。`,
                     "- 建議檢查 Copilot 是否已接單、是否有 PR 草稿、或是否需要人工接手。"
                   ].join("\n");
 
@@ -218,7 +228,7 @@ jobs:
                   }
                 }
 
-                if (hasCopilot && (hasMarker || dryRun)) {
+                if (hasCopilot && hasMarker) {
                   results.alreadyHealthy += 1;
                 }
               } catch (error) {

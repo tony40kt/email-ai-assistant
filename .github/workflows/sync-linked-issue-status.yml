@@ -89,7 +89,8 @@ jobs:
             if (linkedIssues.length === 0) {
               core.info("No closingIssuesReferences found; trying PR body fallback parsing.");
               const text = `${pr.title || ""}\n${pr.body || ""}`;
-              const refs = [...text.matchAll(/#(\\d+)/g)].map((m) => Number(m[1])).filter((n) => Number.isInteger(n));
+              const keywordRefRegex = /\b(close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+#(\d+)\b/gi;
+              const refs = [...text.matchAll(keywordRefRegex)].map((m) => Number(m[2])).filter((n) => Number.isInteger(n));
               const uniqueRefs = [...new Set(refs)];
               for (const issueNumber of uniqueRefs) {
                 try {
@@ -98,7 +99,7 @@ jobs:
                   linkedIssues.push({
                     id: data.node_id,
                     number: data.number,
-                    labels: { nodes: (data.labels || []).map((l) => ({ name: typeof l === "string" ? l : l.name })) },
+                    labels: { nodes: (data.labels || []).map((l) => ({ name: l?.name || String(l || "") })) },
                     projectItems: { nodes: [] }
                   });
                 } catch (error) {
@@ -136,9 +137,9 @@ jobs:
 
               const hasMarker = comments.some((c) => (c.body || "").includes(marker));
               if (!hasMarker) {
-                const statusLine = prAction === "closed"
-                  ? (pr.merged ? "已合併" : "已關閉（未合併）")
-                  : "已建立/更新";
+                let statusLine = "已建立/更新";
+                if (prAction === "closed" && pr.merged) statusLine = "已合併";
+                if (prAction === "closed" && !pr.merged) statusLine = "已關閉（未合併）";
                 const body = [
                   marker,
                   `🔄 PR #${prNumber} 已與此 auto:implement issue 連動同步（${statusLine}）。`,
