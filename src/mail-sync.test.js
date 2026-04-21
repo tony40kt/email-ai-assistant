@@ -202,3 +202,47 @@ test("syncEmails resumes from stored cursor and advances markers after paginatio
   assert.equal(storage.getState().syncCursor, null);
   assert.equal(storage.getState().syncSinceMarker, null);
 });
+
+test("syncEmails supports scheduled multi-run continuation and next-cycle incremental marker", async () => {
+  const storage = createMemoryStorage({ lastSyncToken: "sync-v1" });
+  const calls = [];
+  const responses = [
+    { emails: [{ id: "1", from: "a@x.com", to: "b@x.com", subject: "P1" }], nextCursor: "cursor-2", syncToken: "sync-v2" },
+    { emails: [{ id: "2", from: "c@x.com", to: "d@x.com", subject: "P2" }], nextCursor: null, syncToken: "sync-v2" },
+    { emails: [], nextCursor: null, syncToken: "sync-v3" }
+  ];
+
+  const fetchPage = async (params) => {
+    calls.push(params);
+    return responses[calls.length - 1];
+  };
+
+  const firstRun = await syncEmails({
+    fetchPage,
+    storage,
+    maxPagesPerSync: 1
+  });
+  assert.equal(firstRun.hasMore, true);
+  assert.equal(storage.getState().syncCursor, "cursor-2");
+  assert.equal(storage.getState().syncSinceMarker, "sync-v1");
+
+  const secondRun = await syncEmails({
+    fetchPage,
+    storage,
+    maxPagesPerSync: 1
+  });
+  assert.equal(secondRun.hasMore, false);
+  assert.equal(storage.getState().lastSyncToken, "sync-v2");
+  assert.equal(storage.getState().syncCursor, null);
+  assert.equal(storage.getState().syncSinceMarker, null);
+
+  const thirdRun = await syncEmails({
+    fetchPage,
+    storage,
+    maxPagesPerSync: 1
+  });
+  assert.equal(thirdRun.hasMore, false);
+  assert.equal(calls[2].since, "sync-v2");
+  assert.equal(calls[2].cursor, null);
+  assert.equal(storage.getState().lastSyncToken, "sync-v3");
+});

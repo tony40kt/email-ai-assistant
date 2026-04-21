@@ -2,6 +2,15 @@
 
 > iOS 郵件整理應用專案（繁體中文 UI、以免費資源為優先）
 
+## 快速導覽
+
+- [專案里程碑（Roadmap）](#4-專案里程碑mvp--可用版)
+- [GitHub 專案管理方式](#5-github-專案管理方式)
+- [只用 GitHub 網頁版：Issue 建立與追蹤](#6-給只用-github-網頁版的操作步驟issue-建立與追蹤)
+- [安全與隱私原則](#7-安全與隱私原則)
+- [常見問題與排錯指南（FAQ）](#8-常見問題與排錯指南faq)
+- [目前狀態](#9-目前狀態)
+
 ## 1. 專案定位
 
 此專案目標是打造一個「個人團隊也能推進」的 iOS 郵件助手，核心能力：
@@ -63,6 +72,13 @@
 - 郵件內文英翻繁中
 - 翻譯按鈕/快取/錯誤處理
 - UI 全繁中與操作優化
+
+### 4.1 路線圖追蹤方式（Roadmap Tracking）
+
+1. 使用 `docs/ISSUES_DESIGN.md` 依里程碑建立對應 Issues。
+2. 每張 Issue 維持：Priority、Checklist、DoD。
+3. 執行中以 Issue checklist 勾選進度，完成後關閉 Issue。
+4. 里程碑進度以「已關閉 Issue / 總 Issue」快速檢查。
 
 ## 5. GitHub 專案管理方式
 
@@ -200,14 +216,27 @@
 - Labels: `type:task`, `priority:P2`, `area:workflow`, `auto:implement`
 - Body: 含 checklist 與 DoD，並要求 Copilot 實作可驗證的小改動。
 
-## 6. 給「只用 GitHub 網頁版」的操作步驟
+### 5.10 文件導覽（可搜尋）
+
+- `README.md`：專案總覽、Roadmap、流程、FAQ
+- `docs/README.md`：文件索引（依主題快速查找）
+- `docs/ARCHITECTURE.md`：系統架構與資料流程
+- `docs/GITHUB_WEB_MANUAL.md`：GitHub 網頁版操作手冊（Issue 建立/追蹤）
+- `docs/ISSUES_DESIGN.md`：Issue 規劃母表
+- `docs/OAUTH_IOS_IMPLEMENTATION.md`：OAuth 實作細節
+- `docs/SECURITY_PRIVACY_GOVERNANCE.md`：安全與隱私治理
+
+## 6. 給「只用 GitHub 網頁版」的操作步驟（Issue 建立與追蹤）
 
 1. 到 **Issues** 頁面點選 **New issue**
 2. 選擇對應模板（Epic/Feature/Task/Bug）
 3. 依表單填寫：目標、工作項目、DoD、備註
 4. 建立後，Workflow 會自動補上建議標籤與檢查留言
-5. 完成工作時，在該 Issue 勾選工作項目並更新狀態
-6. 若要自動啟動 Copilot 開發流程，先確保該 Issue 已有 `auto:implement` 標籤；之後加標、更新或重新開啟該 Issue 都可觸發流程
+5. 進入 Issue 右側 **Labels**，確認至少有：`type:*`、`priority:*`、`area:*`
+6. 在 Issue 描述持續勾選 checklist，並在留言回報進度（含驗證結果）
+7. 需要實作時建立 PR，於描述加上 `Closes #<issue-number>`
+8. PR 合併後回到 Issue，確認狀態已關閉且 checklist 全勾選
+9. 若要自動啟動 Copilot 開發流程，先確保該 Issue 已有 `auto:implement` 標籤；之後加標、更新或重新開啟該 Issue 都可觸發流程
 
 ## 7. 安全與隱私原則
 
@@ -220,13 +249,31 @@
 
 詳細治理規範請參考：`docs/SECURITY_PRIVACY_GOVERNANCE.md`
 
-## 8. 目前狀態
+## 8. 常見問題與排錯指南（FAQ）
+
+### Q1：我看不到 Issue Template（Epic/Feature/Task/Bug）怎麼辦？
+- 先確認目前在正確 repo 的 **Issues** 頁面。
+- 點 **New issue** 後應出現模板選單；若沒出現，重新整理頁面再試一次。
+
+### Q2：Issue 建好後沒有自動補標籤？
+- 到 **Actions** 查看 `Issue Automation` 是否執行成功。
+- 確認 Issue 內容有包含 Priority 與 Checklist（`- [ ]`）。
+
+### Q3：PR 沒有自動關閉 Issue？
+- 在 PR 描述加入 `Closes #<issue-number>`（或 `Fixes #<issue-number>`）。
+- 確認 PR 與 Issue 在同一個 repository。
+
+### Q4：加了 `auto:implement` 但沒有後續動作？
+- 到 **Actions** 檢查 `copilot-auto-implement.yml` log。
+- 確認 Issue 為 open、標籤正確、觸發者權限符合流程要求。
+
+## 9. 目前狀態
 
 - ✅ 需求盤點完成
 - ✅ README 與 Issue/Workflow 設計完成
 - ✅ `src/mail-sync.js` 已提供郵件欄位模型轉換、分頁/增量同步與重試錯誤流程
 - ⏳ 下一步：依 `docs/ISSUES_DESIGN.md` 逐張開 Issue 並開始開發
 
-## 9. 授權
+## 10. 授權
 
 建議使用 MIT License（可後續新增 `LICENSE` 檔案）。

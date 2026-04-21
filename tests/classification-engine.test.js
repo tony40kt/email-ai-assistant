@@ -229,6 +229,92 @@ test('normalizes whitespace in recipients and labels', () => {
   assert.deepEqual(result.email.classification.appliedLabels, ['Promo']);
 });
 
+test('supports read/unread conditions for rule matching', () => {
+  const unreadEmail = {
+    from: 'alerts@shop.com',
+    subject: 'Flash sale',
+    body: '50% off',
+    isRead: false,
+    labels: []
+  };
+
+  const readEmail = {
+    ...unreadEmail,
+    isRead: true
+  };
+
+  const rules = [
+    {
+      id: 'read-only',
+      name: '已讀推送',
+      priority: 0,
+      conditions: { from: 'shop.com', keyword: 'sale', isRead: true },
+      labels: ['ReadAlert']
+    },
+    {
+      id: 'unread-only',
+      name: '未讀推送',
+      priority: 0,
+      conditions: { from: 'shop.com', keyword: 'sale', isRead: '未讀' },
+      labels: ['UnreadAlert']
+    }
+  ];
+
+  const unreadResult = classifyEmail(unreadEmail, rules);
+  const readResult = classifyEmail(readEmail, rules);
+
+  assert.equal(unreadResult.winningRule.id, 'unread-only');
+  assert.equal(readResult.winningRule.id, 'read-only');
+});
+
+test('supports read condition alias for backward compatibility', () => {
+  const email = {
+    from: 'alerts@shop.com',
+    subject: 'Flash sale',
+    body: '50% off',
+    read: true,
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'read-alias',
+      name: '已讀別名',
+      priority: 1,
+      conditions: { from: 'shop.com', keyword: 'sale', read: 'read' },
+      labels: ['Alias']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'read-alias');
+});
+
+test('supports unread state with read condition alias', () => {
+  const email = {
+    from: 'alerts@shop.com',
+    subject: 'Flash sale',
+    body: '50% off',
+    read: false,
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'unread-alias',
+      name: '未讀別名',
+      priority: 1,
+      conditions: { from: 'shop.com', keyword: 'sale', read: 'unread' },
+      labels: ['AliasUnread']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'unread-alias');
+});
+
 test('clears previous auto labels when no rule matches', () => {
   const email = {
     from: 'noreply@system.com',
@@ -257,4 +343,29 @@ test('clears previous auto labels when no rule matches', () => {
   assert.deepEqual(result.email.labels, ['KeepMe']);
   assert.deepEqual(result.email.classification.appliedLabels, []);
   assert.equal(result.trace.winningRuleId, null);
+});
+
+test('does not match rules that have no effective conditions', () => {
+  const email = {
+    from: 'alerts@bank.com',
+    subject: 'Payment reminder',
+    body: 'invoice due',
+    labels: ['Keep']
+  };
+
+  const rules = [
+    {
+      id: 'empty-condition',
+      name: '空條件規則',
+      priority: 0,
+      conditions: {},
+      labels: ['AutoTag']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule, null);
+  assert.deepEqual(result.email.labels, ['Keep']);
+  assert.deepEqual(result.trace.matchedRuleIds, []);
 });
