@@ -199,6 +199,44 @@ test('normalizes whitespace in recipients and labels', () => {
   assert.deepEqual(result.email.classification.appliedLabels, ['Promo']);
 });
 
+test('supports read/unread conditions for rule matching', () => {
+  const unreadEmail = {
+    from: 'alerts@shop.com',
+    subject: 'Flash sale',
+    body: '50% off',
+    isRead: false,
+    labels: []
+  };
+
+  const readEmail = {
+    ...unreadEmail,
+    isRead: true
+  };
+
+  const rules = [
+    {
+      id: 'read-only',
+      name: '已讀推送',
+      priority: 0,
+      conditions: { from: 'shop.com', keyword: 'sale', read: true },
+      labels: ['ReadAlert']
+    },
+    {
+      id: 'unread-only',
+      name: '未讀推送',
+      priority: 0,
+      conditions: { from: 'shop.com', keyword: 'sale', isRead: '未讀' },
+      labels: ['UnreadAlert']
+    }
+  ];
+
+  const unreadResult = classifyEmail(unreadEmail, rules);
+  const readResult = classifyEmail(readEmail, rules);
+
+  assert.equal(unreadResult.winningRule.id, 'unread-only');
+  assert.equal(readResult.winningRule.id, 'read-only');
+});
+
 test('clears previous auto labels when no rule matches', () => {
   const email = {
     from: 'noreply@system.com',

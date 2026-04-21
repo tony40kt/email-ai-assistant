@@ -44,6 +44,35 @@ const normalizeTimestamp = (value) => {
   return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
 };
 
+const normalizeBooleanLike = (value) => {
+  if (value === true || value === false) return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+    return null;
+  }
+  if (!isNonEmptyString(value)) return null;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'read', '已讀'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'unread', '未讀'].includes(normalized)) return false;
+  return null;
+};
+
+const readConditionMatches = (email, conditions) => {
+  const rawExpected = conditions.isRead ?? conditions.read;
+  if (rawExpected === undefined || rawExpected === null) return true;
+  if (typeof rawExpected === 'string' && rawExpected.trim().length === 0) return true;
+
+  const expected = normalizeBooleanLike(rawExpected);
+  if (expected === null) return false;
+
+  const actual = normalizeBooleanLike(email?.isRead ?? email?.read);
+  if (actual === null) return false;
+
+  return actual === expected;
+};
+
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
@@ -60,7 +89,8 @@ const ruleMatches = (email, rule) => {
     && recipientsContainAny(email?.to, toTokens)
     && containsAny(combined, keywordTokens)
     && containsAny(subject, subjectTokens)
-    && containsAny(body, bodyTokens);
+    && containsAny(body, bodyTokens)
+    && readConditionMatches(email, conditions);
 };
 
 const pickWinningRule = (rules) => {
