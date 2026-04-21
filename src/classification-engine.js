@@ -2,6 +2,10 @@
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const normalizeString = (value) => value.trim().toLowerCase();
+const TRUTHY_BOOLEAN_LIKE_VALUES = ['true', '1', 'yes'];
+const FALSY_BOOLEAN_LIKE_VALUES = ['false', '0', 'no'];
+const READ_STATE_TRUE_VALUES = ['read', '已讀'];
+const READ_STATE_FALSE_VALUES = ['unread', '未讀'];
 
 const toArray = (value) => {
   if (Array.isArray(value)) return value;
@@ -12,6 +16,14 @@ const toArray = (value) => {
 const toLowerTokens = (value) => toArray(value)
   .filter(isNonEmptyString)
   .map((item) => item.trim().toLowerCase());
+
+const hasAnyCondition = (conditions = {}) => (
+  toLowerTokens(conditions.from ?? conditions.sender).length > 0
+  || toLowerTokens(conditions.to ?? conditions.recipient).length > 0
+  || toLowerTokens(conditions.keyword ?? conditions.keywords).length > 0
+  || toLowerTokens(conditions.subject).length > 0
+  || toLowerTokens(conditions.body).length > 0
+);
 
 const containsAny = (target, tokens) => {
   if (!tokens.length) return true;
@@ -44,8 +56,38 @@ const normalizeTimestamp = (value) => {
   return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
 };
 
+const normalizeBooleanLike = (value) => {
+  if (value === true || value === false) return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+    return null;
+  }
+  if (!isNonEmptyString(value)) return null;
+
+  const normalized = value.trim().toLowerCase();
+  if (TRUTHY_BOOLEAN_LIKE_VALUES.includes(normalized) || READ_STATE_TRUE_VALUES.includes(normalized)) return true;
+  if (FALSY_BOOLEAN_LIKE_VALUES.includes(normalized) || READ_STATE_FALSE_VALUES.includes(normalized)) return false;
+  return null;
+};
+
+const readConditionMatches = (email, conditions) => {
+  const rawExpected = conditions.isRead ?? conditions.read;
+  if (rawExpected === undefined || rawExpected === null) return true;
+  if (typeof rawExpected === 'string' && rawExpected.trim().length === 0) return true;
+
+  const expected = normalizeBooleanLike(rawExpected);
+  if (expected === null) return false;
+
+  const actual = normalizeBooleanLike(email?.isRead ?? email?.read);
+  if (actual === null) return false;
+
+  return actual === expected;
+};
+
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
+  if (!hasAnyCondition(conditions)) return false;
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
   const body = isNonEmptyString(email?.body) ? email.body : '';
   const combined = `${subject}\n${body}`;
@@ -60,7 +102,8 @@ const ruleMatches = (email, rule) => {
     && recipientsContainAny(email?.to, toTokens)
     && containsAny(combined, keywordTokens)
     && containsAny(subject, subjectTokens)
-    && containsAny(body, bodyTokens);
+    && containsAny(body, bodyTokens)
+    && readConditionMatches(email, conditions);
 };
 
 const pickWinningRule = (rules) => {

@@ -39,6 +39,16 @@ jobs:
             const inProgressOptionName = (process.env.IN_PROGRESS_OPTION_NAME || "In Progress").trim().toLowerCase();
             const doneOptionName = (process.env.DONE_OPTION_NAME || "Done").trim().toLowerCase();
             const markerPrefix = process.env.MARKER_PREFIX || "<!-- copilot-auto-implement:pr-sync:";
+            const formatZhTwDateTime = (value = new Date()) => new Intl.DateTimeFormat("zh-TW", {
+              timeZone: "Asia/Taipei",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false
+            }).format(value);
 
             core.info(`[debug] pr=#${prNumber} action=${prAction} merged=${Boolean(pr.merged)}`);
 
@@ -144,8 +154,9 @@ jobs:
                   marker,
                   `🔄 PR #${prNumber} 已與此 auto:implement issue 連動同步（${statusLine}）。`,
                   `- PR: ${pr.html_url}`,
-                  `- Event: \`${prAction}\``,
-                  `- Verification: linked issue + label \`${autoImplementLabel}\``
+                  `- 事件：\`${prAction}\``,
+                  `- 驗證：已連結 Issue + 標籤 \`${autoImplementLabel}\``,
+                  `- 同步時間（台北時間）：${formatZhTwDateTime()}`
                 ].join("\n");
                 try {
                   await github.rest.issues.createComment({

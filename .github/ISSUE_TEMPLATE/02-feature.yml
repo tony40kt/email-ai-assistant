@@ -1,4 +1,4 @@
-name: FEATURE
+name: 功能
 description: 新功能需求（可直接對應開發工作）
 title: "[FEATURE] "
 labels:
@@ -15,7 +15,7 @@ body:
   - type: dropdown
     id: priority
     attributes:
-      label: Priority
+      label: 優先級
       options:
         - P0
         - P1

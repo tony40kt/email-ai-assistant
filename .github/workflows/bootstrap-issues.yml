@@ -67,12 +67,20 @@ jobs:
               const labelsLine = extractField(block, "Labels");
               const labels = [...labelsLine.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
               const title = extractField(block, "Title");
+              const bodyTypeRaw = extractField(block, "Body Type");
+              const bodyTypeMap = {
+                epic: "史詩",
+                feature: "功能",
+                task: "任務",
+                bug: "錯誤"
+              };
+              const bodyType = bodyTypeMap[(bodyTypeRaw || "").toLowerCase()] || bodyTypeRaw || "未填寫";
               if (title && labels.length === 0) {
                 throw new Error(`No labels found for issue spec: ${title}`);
               }
               return {
                 title,
-                bodyType: extractField(block, "Body Type"),
+                bodyType,
                 priority: extractField(block, "Priority"),
                 labels,
                 purpose: extractField(block, "目的"),
@@ -142,11 +150,11 @@ jobs:
               }
 
               const body = [
-                `## Body Type`,
-                spec.bodyType || "N/A",
+                `## 類型`,
+                spec.bodyType || "未填寫",
                 ``,
-                `## Priority`,
-                spec.priority || "N/A",
+                `## 優先級`,
+                spec.priority || "未填寫",
                 ``,
                 `## 目的`,
                 spec.purpose || "",

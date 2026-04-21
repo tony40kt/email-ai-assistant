@@ -12,7 +12,7 @@ jobs:
   triage:
     runs-on: ubuntu-latest
     steps:
-      - name: Auto label and checklist reminder
+      - name: 自動標籤與檢查清單提醒
         uses: actions/github-script@v7
         with:
           script: |
@@ -91,12 +91,13 @@ jobs:
             if (title.startsWith("[bug]")) labelsToAdd.add("type:bug");
 
             // Priority label from body/title content
+            const priorityMap = ["p0", "p1", "p2", "p3"];
+            const hasPriorityKeyword = body.includes("priority") || body.includes("優先級");
             if (priorityValue) {
               labelsToAdd.add(`priority:${priorityValue}`);
             } else {
-              const priorityMap = ["p0", "p1", "p2", "p3"];
               for (const p of priorityMap) {
-                if (title.includes(p) || body.includes(`priority`) && body.includes(p)) {
+                if (title.includes(p) || (hasPriorityKeyword && body.includes(p))) {
                   labelsToAdd.add(`priority:${p.toUpperCase()}`);
                   break;
                 }
@@ -163,11 +164,11 @@ jobs:
               const marker = "<!-- issue-automation-reminder -->";
               const reminder = `${marker}
             👋 感謝建立 Issue！為了讓自動化流程完整運作，請補齊以下資訊：
-            - Priority（P0/P1/P2/P3）
-            - 工作項目（Checklist）
+            - 優先級（P0/P1/P2/P3）
+            - 工作項目（檢查清單）
             - DoD（完成定義）
-            
-            你可以直接使用已提供的 Issue Template（Epic/Feature/Task/Bug）快速補齊。`;
+             
+            你可以直接使用已提供的 Issue 範本（Epic/Feature/Task/Bug）快速補齊。`;
 
               const comments = await github.rest.issues.listComments({
                 owner,
