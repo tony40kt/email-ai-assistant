@@ -21,7 +21,18 @@ jobs:
             const repo = context.repo.repo;
             const issue_number = issue.number;
             const title = (issue.title || "").toLowerCase();
-            const body = (issue.body || "").toLowerCase();
+            const issueBody = issue.body || "";
+            const body = issueBody.toLowerCase();
+            const markdownSections = [...issueBody.matchAll(/^##\s+(.+?)\s*\n([\s\S]*?)(?=^##\s+|(?![\s\S]))/gm)];
+            const getSection = (...names) => {
+              const normalizedNames = names.map(name => name.trim().toLowerCase());
+              const match = markdownSections.find(([, heading]) => normalizedNames.includes(heading.trim().toLowerCase()));
+              return (match?.[2] || "").trim();
+            };
+            const bodyTypeValue = getSection("Body Type").toLowerCase();
+            const priorityValue = getSection("Priority").toUpperCase().match(/P[0-3]/)?.[0] || null;
+            const workItemsValue = getSection("工作項目");
+            const dodValue = getSection("DoD（完成定義）", "DoD(完成定義)", "DoD");
 
             const existingLabels = (issue.labels || []).map(l => l.name);
             const labelsToAdd = new Set();
@@ -57,17 +68,25 @@ jobs:
             }
 
             // Type label by title prefix (fallback)
+            if (bodyTypeValue === "epic") labelsToAdd.add("type:epic");
+            if (bodyTypeValue === "feature") labelsToAdd.add("type:feature");
+            if (bodyTypeValue === "task") labelsToAdd.add("type:task");
+            if (bodyTypeValue === "bug") labelsToAdd.add("type:bug");
             if (title.startsWith("[epic]")) labelsToAdd.add("type:epic");
             if (title.startsWith("[feature]")) labelsToAdd.add("type:feature");
             if (title.startsWith("[task]")) labelsToAdd.add("type:task");
             if (title.startsWith("[bug]")) labelsToAdd.add("type:bug");
 
             // Priority label from body/title content
-            const priorityMap = ["p0", "p1", "p2", "p3"];
-            for (const p of priorityMap) {
-              if (title.includes(p) || body.includes(`priority`) && body.includes(p)) {
-                labelsToAdd.add(`priority:${p.toUpperCase()}`);
-                break;
+            if (priorityValue) {
+              labelsToAdd.add(`priority:${priorityValue}`);
+            } else {
+              const priorityMap = ["p0", "p1", "p2", "p3"];
+              for (const p of priorityMap) {
+                if (title.includes(p) || body.includes(`priority`) && body.includes(p)) {
+                  labelsToAdd.add(`priority:${p.toUpperCase()}`);
+                  break;
+                }
               }
             }
 
@@ -122,9 +141,10 @@ jobs:
             }
 
             // DoD/checklist reminder
-            const hasDoD = body.includes("dod") || body.includes("完成定義");
-            const hasChecklist = body.includes("- [ ]");
-            const hasPriority = body.includes("priority");
+            const checklistPattern = /-\s*\[[ xX]\]/;
+            const hasDoD = checklistPattern.test(dodValue);
+            const hasChecklist = checklistPattern.test(workItemsValue);
+            const hasPriority = Boolean(priorityValue);
 
             if (!hasDoD || !hasChecklist || !hasPriority) {
               const marker = "<!-- issue-automation-reminder -->";
