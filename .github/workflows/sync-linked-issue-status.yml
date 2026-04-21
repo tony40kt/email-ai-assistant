@@ -1,13 +1,14 @@
-name: Sync Linked Issue Status
+name: Sync Linked Auto-Implement Issue Status
 
 on:
   pull_request:
-    types: [opened, reopened, edited, ready_for_review, synchronize]
+    types: [opened, reopened, edited, ready_for_review, synchronize, closed]
 
 permissions:
   issues: write
   pull-requests: read
   repository-projects: write
+  contents: read
 
 concurrency:
   group: linked-issue-status-${{ github.event.pull_request.number }}
@@ -18,25 +19,31 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
-      STATUS_FIELD_NAME: Status
-      IN_PROGRESS_OPTION_NAME: In Progress
-      COPILOT_BRANCH_PREFIX: copilot/
-      AUTO_IMPLEMENT_LABEL: auto:implement
+      AUTO_IMPLEMENT_LABEL: ${{ vars.AUTO_IMPLEMENT_LABEL || 'auto:implement' }}
+      STATUS_FIELD_NAME: ${{ vars.PROJECT_STATUS_FIELD_NAME || 'Status' }}
+      IN_PROGRESS_OPTION_NAME: ${{ vars.PROJECT_IN_PROGRESS_OPTION || 'In Progress' }}
+      DONE_OPTION_NAME: ${{ vars.PROJECT_DONE_OPTION || 'Done' }}
+      MARKER_PREFIX: "<!-- copilot-auto-implement:pr-sync:"
     steps:
-      - name: Conditionally assign Copilot and sync linked issue status
+      - name: Verify linked issues and sync PR/Issue status
         uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prNumber = context.payload.pull_request.number;
-            const headRef = context.payload.pull_request.head.ref || "";
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
+            const prAction = context.payload.action || "unknown";
+            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
             const statusFieldName = (process.env.STATUS_FIELD_NAME || "Status").trim().toLowerCase();
             const inProgressOptionName = (process.env.IN_PROGRESS_OPTION_NAME || "In Progress").trim().toLowerCase();
-            const copilotBranchPrefix = process.env.COPILOT_BRANCH_PREFIX || "copilot/";
-            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
+            const doneOptionName = (process.env.DONE_OPTION_NAME || "Done").trim().toLowerCase();
+            const markerPrefix = process.env.MARKER_PREFIX || "<!-- copilot-auto-implement:pr-sync:";
 
-            const query = `
+            core.info(`[debug] pr=#${prNumber} action=${prAction} merged=${Boolean(pr.merged)}`);
+
+            const linkedData = await github.graphql(
+              `
               query($owner: String!, $repo: String!, $prNumber: Int!) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $prNumber) {
@@ -44,19 +51,13 @@ jobs:
                       nodes {
                         id
                         number
-                        title
-                        labels(first: 20) {
-                          nodes {
-                            name
-                          }
+                        labels(first: 50) {
+                          nodes { name }
                         }
                         projectItems(first: 20) {
                           nodes {
                             id
-                            project {
-                              id
-                              title
-                            }
+                            project { id title }
                             fieldValues(first: 50) {
                               nodes {
                                 ... on ProjectV2ItemFieldSingleSelectValue {
@@ -66,10 +67,7 @@ jobs:
                                     ... on ProjectV2SingleSelectField {
                                       id
                                       name
-                                      options {
-                                        id
-                                        name
-                                      }
+                                      options { id name }
                                     }
                                   }
                                 }
@@ -82,84 +80,128 @@ jobs:
                   }
                 }
               }
-            `;
-
-            const data = await github.graphql(query, { owner, repo, prNumber });
-            const linkedIssues = data?.repository?.pullRequest?.closingIssuesReferences?.nodes || [];
-            const hasAutoImplementIssue = linkedIssues.some((issue) =>
-              (issue.labels?.nodes || []).some((label) => label.name === autoImplementLabel)
+              `,
+              { owner, repo, prNumber }
             );
-            const shouldAssignCopilot = headRef.startsWith(copilotBranchPrefix) || hasAutoImplementIssue;
 
-            if (shouldAssignCopilot) {
-              const prAssignees = (context.payload.pull_request.assignees || []).map((a) => a.login.toLowerCase());
-              if (!prAssignees.includes("copilot")) {
-                try {
-                  await github.rest.issues.addAssignees({
-                    owner,
-                    repo,
-                    issue_number: prNumber,
-                    assignees: ["copilot"]
-                  });
-                  core.info(`Assigned Copilot to PR #${prNumber}.`);
-                } catch (error) {
-                  core.warning(`Could not assign Copilot to PR #${prNumber}: ${error.message}`);
-                }
-              }
-            } else {
-              core.info(`PR #${prNumber} is not a Copilot auto-implement PR. Skip Copilot assignment.`);
-            }
+            let linkedIssues = linkedData?.repository?.pullRequest?.closingIssuesReferences?.nodes || [];
 
             if (linkedIssues.length === 0) {
-              core.info(`PR #${prNumber} has no linked issues. Nothing to sync.`);
+              core.info("No closingIssuesReferences found; trying PR body fallback parsing.");
+              const text = `${pr.title || ""}\n${pr.body || ""}`;
+              const keywordRefRegex = /\b(close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+#(\d+)\b/gi;
+              const refs = [...text.matchAll(keywordRefRegex)].map((m) => Number(m[2])).filter((n) => Number.isInteger(n));
+              const uniqueRefs = [...new Set(refs)];
+              for (const issueNumber of uniqueRefs) {
+                try {
+                  const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                  if (data.pull_request) continue;
+                  linkedIssues.push({
+                    id: data.node_id,
+                    number: data.number,
+                    labels: { nodes: (data.labels || []).map((l) => ({ name: l?.name || String(l || "") })) },
+                    projectItems: { nodes: [] }
+                  });
+                } catch (error) {
+                  core.warning(`Failed to fetch fallback issue #${issueNumber}: ${error.message}`);
+                }
+              }
+            }
+
+            const autoIssues = linkedIssues.filter((issue) =>
+              (issue.labels?.nodes || []).some((label) => label.name === autoImplementLabel)
+            );
+
+            if (autoIssues.length === 0) {
+              core.info(`PR #${prNumber} has no linked issue with '${autoImplementLabel}'. Skipping sync.`);
               return;
             }
 
-            for (const issue of linkedIssues) {
+            const desiredStatusName = prAction === "closed" && pr.merged ? doneOptionName : inProgressOptionName;
+            core.info(`[debug] linkedAutoIssues=${autoIssues.map((x) => x.number).join(",")} desiredStatus=${desiredStatusName}`);
+
+            for (const issue of autoIssues) {
+              const issueNumber = issue.number;
+              const marker = `${markerPrefix}${prNumber} -->`;
+              let comments = [];
+              try {
+                comments = await github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                });
+              } catch (error) {
+                core.warning(`Failed to list comments on issue #${issueNumber}: ${error.message}`);
+              }
+
+              const hasMarker = comments.some((c) => (c.body || "").includes(marker));
+              if (!hasMarker) {
+                let statusLine = "已建立/更新";
+                if (prAction === "closed" && pr.merged) statusLine = "已合併";
+                if (prAction === "closed" && !pr.merged) statusLine = "已關閉（未合併）";
+                const body = [
+                  marker,
+                  `🔄 PR #${prNumber} 已與此 auto:implement issue 連動同步（${statusLine}）。`,
+                  `- PR: ${pr.html_url}`,
+                  `- Event: \`${prAction}\``,
+                  `- Verification: linked issue + label \`${autoImplementLabel}\``
+                ].join("\n");
+                try {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    body
+                  });
+                } catch (error) {
+                  core.warning(`Failed to add sync comment on issue #${issueNumber}: ${error.message}`);
+                }
+              }
+
               const issueItems = issue.projectItems?.nodes || [];
               if (issueItems.length === 0) {
-                core.info(`Issue #${issue.number} has no project item. Skipping status sync.`);
+                core.info(`Issue #${issueNumber} has no project items; comment sync only.`);
                 continue;
               }
 
               for (const item of issueItems) {
-                const statusFieldValue = (item.fieldValues?.nodes || []).find((v) => {
-                  const fieldName = v?.field?.name || "";
+                const statusFieldValue = (item.fieldValues?.nodes || []).find((value) => {
+                  const fieldName = value?.field?.name || "";
                   return fieldName.toLowerCase() === statusFieldName;
                 });
 
-                if (!statusFieldValue?.field?.id) {
-                  core.info(`Issue #${issue.number} project "${item.project?.title || "unknown"}" has no "${process.env.STATUS_FIELD_NAME}" field access.`);
+                const statusField = statusFieldValue?.field;
+                if (!statusField?.id) {
+                  core.info(`Issue #${issueNumber} project '${item.project?.title || "unknown"}' missing status field access.`);
                   continue;
                 }
 
-                const statusField = statusFieldValue.field;
-                const targetOption = (statusField.options || []).find((opt) => opt.name.toLowerCase() === inProgressOptionName);
+                const targetOption = (statusField.options || []).find((option) => option.name.toLowerCase() === desiredStatusName);
                 if (!targetOption?.id) {
-                  core.info(`Project "${item.project?.title || "unknown"}" has no "${process.env.IN_PROGRESS_OPTION_NAME}" option.`);
+                  core.info(`Project '${item.project?.title || "unknown"}' has no option '${desiredStatusName}'.`);
                   continue;
                 }
 
-                if ((statusFieldValue.name || "").toLowerCase() === inProgressOptionName) {
-                  core.info(`Issue #${issue.number} is already ${process.env.IN_PROGRESS_OPTION_NAME} in "${item.project?.title || "unknown"}".`);
+                const currentName = (statusFieldValue?.name || "").toLowerCase();
+                if (currentName === desiredStatusName) {
+                  core.info(`Issue #${issueNumber} already at '${desiredStatusName}' for project '${item.project?.title || "unknown"}'.`);
                   continue;
                 }
 
                 try {
                   await github.graphql(
                     `
-                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                        updateProjectV2ItemFieldValue(input: {
-                          projectId: $projectId
-                          itemId: $itemId
-                          fieldId: $fieldId
-                          value: { singleSelectOptionId: $optionId }
-                        }) {
-                          projectV2Item {
-                            id
-                          }
-                        }
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { singleSelectOptionId: $optionId }
+                      }) {
+                        projectV2Item { id }
                       }
+                    }
                     `,
                     {
                       projectId: item.project.id,
@@ -168,9 +210,9 @@ jobs:
                       optionId: targetOption.id
                     }
                   );
-                  core.info(`Issue #${issue.number} moved to ${process.env.IN_PROGRESS_OPTION_NAME} in "${item.project?.title || "unknown"}".`);
+                  core.info(`Issue #${issueNumber} moved to '${desiredStatusName}' in project '${item.project?.title || "unknown"}'.`);
                 } catch (error) {
-                  core.warning(`Failed updating issue #${issue.number} in "${item.project?.title || "unknown"}": ${error.message}`);
+                  core.warning(`Failed to update project status for issue #${issueNumber}: ${error.message}`);
                 }
               }
             }

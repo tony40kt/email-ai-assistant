@@ -1,0 +1,240 @@
+name: Copilot Auto Implement - Monitor and Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run checks without writing assignees/comments"
+        required: false
+        default: false
+        type: boolean
+      stale_days_without_pr:
+        description: "Warn when issue has no linked PR after N days"
+        required: false
+        default: "3"
+        type: string
+      max_issues:
+        description: "Maximum open issues to scan"
+        required: false
+        default: "200"
+        type: string
+  schedule:
+    # Optional monitor schedule (disabled by default unless AUTO_IMPLEMENT_MONITOR_SCHEDULE_ENABLED=true).
+    - cron: "20 */6 * * *"
+
+permissions:
+  issues: write
+  pull-requests: read
+  contents: read
+
+concurrency:
+  group: copilot-auto-implement-monitor-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  monitor-backfill:
+    if: github.event_name == 'workflow_dispatch' || vars.AUTO_IMPLEMENT_MONITOR_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    env:
+      AUTO_IMPLEMENT_LABEL: ${{ vars.AUTO_IMPLEMENT_LABEL || 'auto:implement' }}
+      COPILOT_ASSIGNEE: ${{ vars.COPILOT_ASSIGNEE || 'copilot' }}
+      MARKER: "<!-- copilot-auto-implement:managed -->"
+      WARNING_MARKER: "<!-- copilot-auto-implement:monitor-warning -->"
+    steps:
+      - name: Scan open auto:implement issues and backfill safely
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const dispatchInputs = context.payload.inputs || {};
+            const dryRun = String(dispatchInputs.dry_run ?? "false").toLowerCase() === "true";
+            const staleDaysInput = Number(dispatchInputs.stale_days_without_pr ?? "3");
+            const maxIssuesInput = Number(dispatchInputs.max_issues ?? "200");
+            const staleDays = Number.isFinite(staleDaysInput) ? staleDaysInput : 3;
+            const maxIssues = Number.isFinite(maxIssuesInput) ? maxIssuesInput : 200;
+            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
+            const copilotAssignee = (process.env.COPILOT_ASSIGNEE || "copilot").toLowerCase();
+            const marker = process.env.MARKER || "<!-- copilot-auto-implement:managed -->";
+            const warningMarker = process.env.WARNING_MARKER || "<!-- copilot-auto-implement:monitor-warning -->";
+            const staleCheckEnabled = staleDays > 0;
+            const staleMillis = staleCheckEnabled ? staleDays * 24 * 60 * 60 * 1000 : 0;
+
+            core.info(`[debug] dryRun=${dryRun} staleDays=${staleDays} staleCheckEnabled=${staleCheckEnabled} maxIssues=${maxIssues}`);
+            core.info(`[debug] autoImplementLabel=${autoImplementLabel} copilotAssignee=${copilotAssignee}`);
+
+            const list = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: "open",
+              labels: autoImplementLabel,
+              per_page: 100
+            });
+
+            const issues = list.filter((item) => !item.pull_request).slice(0, Math.max(0, maxIssues));
+            core.info(`Scanning ${issues.length} open issue(s) with label '${autoImplementLabel}'.`);
+
+            const results = {
+              scanned: issues.length,
+              assigneeAdded: 0,
+              markerAdded: 0,
+              warningAdded: 0,
+              alreadyHealthy: 0,
+              errors: 0
+            };
+
+            const getLinkedPrs = async (issueNumber) => {
+              const data = await github.graphql(
+                `
+                query($owner: String!, $repo: String!, $issueNumber: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issue(number: $issueNumber) {
+                      timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+                        nodes {
+                          ... on CrossReferencedEvent {
+                            source {
+                              __typename
+                              ... on PullRequest {
+                                number
+                                url
+                                state
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                `,
+                { owner, repo, issueNumber }
+              );
+              const nodes = data?.repository?.issue?.timelineItems?.nodes || [];
+              return nodes
+                .map((n) => n?.source)
+                .filter((s) => s?.__typename === "PullRequest");
+            };
+
+            for (const issue of issues) {
+              try {
+                const issueNumber = issue.number;
+                core.info(`--- Processing issue #${issueNumber}`);
+
+                const assignees = (issue.assignees || []).map((a) => (a.login || "").toLowerCase());
+                let hasCopilot = assignees.includes(copilotAssignee);
+                let hasMarker = false;
+                let hasWarning = false;
+
+                let comments = [];
+                try {
+                  comments = await github.paginate(github.rest.issues.listComments, {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    per_page: 100
+                  });
+                  hasMarker = comments.some((c) => (c.body || "").includes(marker));
+                  hasWarning = comments.some((c) => (c.body || "").includes(warningMarker));
+                } catch (error) {
+                  core.warning(`Failed to list comments for #${issueNumber}: ${error.message}`);
+                }
+
+                if (!hasCopilot) {
+                  if (!dryRun) {
+                    try {
+                      await github.rest.issues.addAssignees({
+                        owner,
+                        repo,
+                        issue_number: issueNumber,
+                        assignees: [copilotAssignee]
+                      });
+                      results.assigneeAdded += 1;
+                    } catch (error) {
+                      core.warning(`Failed to add assignee '${copilotAssignee}' on #${issueNumber}: ${error.message}`);
+                    }
+
+                    try {
+                      const { data: refreshed } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                      const refreshedAssignees = (refreshed.assignees || []).map((a) => (a.login || "").toLowerCase());
+                      hasCopilot = refreshedAssignees.includes(copilotAssignee);
+                    } catch (error) {
+                      core.warning(`Failed to verify assignee for #${issueNumber}: ${error.message}`);
+                    }
+                  } else {
+                    core.info(`[dry-run] would add assignee '${copilotAssignee}' to #${issueNumber}`);
+                  }
+                }
+
+                if (!hasMarker) {
+                  const markerComment = [
+                    marker,
+                    "Monitor/backfill 已補跑 auto-implement 流程：",
+                    `- Assignee @${copilotAssignee}: ${hasCopilot ? "✅ present" : "⚠️ missing / pending"}`,
+                    "- 此流程負責補齊觸發與驗證，無法 100% 保證 Copilot 內部接單。"
+                  ].join("\n");
+
+                  if (!dryRun) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number: issueNumber,
+                        body: markerComment
+                      });
+                      results.markerAdded += 1;
+                    } catch (error) {
+                      core.warning(`Failed to add marker comment on #${issueNumber}: ${error.message}`);
+                    }
+                  } else {
+                    core.info(`[dry-run] would add marker comment to #${issueNumber}`);
+                  }
+                }
+
+                let linkedPrs = [];
+                try {
+                  linkedPrs = await getLinkedPrs(issueNumber);
+                } catch (error) {
+                  core.warning(`Failed to query linked PRs for #${issueNumber}: ${error.message}`);
+                }
+
+                const issueCreatedAt = Date.parse(issue.created_at || "");
+                if (staleCheckEnabled && !Number.isFinite(issueCreatedAt)) {
+                  core.warning(`Issue #${issueNumber} has invalid created_at; skip stale warning check.`);
+                }
+                const isStale = staleCheckEnabled
+                  && Number.isFinite(issueCreatedAt)
+                  && Date.now() - issueCreatedAt >= staleMillis;
+                if (staleCheckEnabled && linkedPrs.length === 0 && isStale && !hasWarning) {
+                  const warningBody = [
+                    warningMarker,
+                    `⚠️ Monitor warning: Issue 已超過 ${staleDays} 天仍未偵測到 linked PR。`,
+                    "- 建議檢查 Copilot 是否已接單、是否有 PR 草稿、或是否需要人工接手。"
+                  ].join("\n");
+
+                  if (!dryRun) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number: issueNumber,
+                        body: warningBody
+                      });
+                      results.warningAdded += 1;
+                    } catch (error) {
+                      core.warning(`Failed to add warning comment on #${issueNumber}: ${error.message}`);
+                    }
+                  } else {
+                    core.info(`[dry-run] would add warning comment to #${issueNumber}`);
+                  }
+                }
+
+                if (hasCopilot && hasMarker) {
+                  results.alreadyHealthy += 1;
+                }
+              } catch (error) {
+                results.errors += 1;
+                core.warning(`Issue #${issue.number} failed but processing continues: ${error.message}`);
+              }
+            }
+
+            core.info(`Backfill summary: ${JSON.stringify(results)}`);
