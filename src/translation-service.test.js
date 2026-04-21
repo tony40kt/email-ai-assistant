@@ -80,7 +80,7 @@ test("translateText retries retryable server errors and then succeeds", async ()
         return {
           ok: false,
           status: 503,
-          json: async () => ({ error: "temporary unavailable" })
+          json: async () => ({ error: "temporarily unavailable" })
         };
       }
       return {

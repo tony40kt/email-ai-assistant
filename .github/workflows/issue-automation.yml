@@ -42,8 +42,8 @@ jobs:
               const match = markdownSections.find(([heading]) => normalizedNames.includes(heading.trim().toLowerCase()));
               return match?.[1] || "";
             };
-            const bodyTypeValue = getSection("Body Type").toLowerCase();
-            const priorityValue = (getSection("Priority") || "").toUpperCase().match(/P[0-3]/)?.[0] || null;
+            const bodyTypeValue = getSection("Body Type", "類型").toLowerCase();
+            const priorityValue = (getSection("Priority", "優先級") || "").toUpperCase().match(/P[0-3]/)?.[0] || null;
             const workItemsValue = getSection("工作項目");
             const dodValue = getSection("DoD（完成定義）", "DoD(完成定義)", "DoD");
 
