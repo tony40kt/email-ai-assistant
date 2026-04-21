@@ -125,7 +125,7 @@ jobs:
             // DoD/checklist reminder
             const hasDoD = body.includes("dod") || body.includes("完成定義");
             const hasChecklist = body.includes("- [ ]");
-            const hasPriority = body.includes("priority") || body.includes("優先級");
+            const hasPriority = hasPriorityKeyword;
 
             if (!hasDoD || !hasChecklist || !hasPriority) {
               const marker = "<!-- issue-automation-reminder -->";
