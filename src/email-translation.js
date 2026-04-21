@@ -50,8 +50,8 @@ const createLibreTranslateClient = ({
     const text = String(inputText || "");
     if (!text.trim()) return "";
 
-    let attempts = 0;
-    while (attempts <= maxRetries) {
+    let retries = 0;
+    while (true) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -64,7 +64,7 @@ const createLibreTranslateClient = ({
             source: "en",
             target: "zh-Hant",
             format: "text",
-            api_key: apiKey || undefined
+            ...(apiKey ? { api_key: apiKey } : {})
           }),
           signal: controller.signal
         });
@@ -73,8 +73,8 @@ const createLibreTranslateClient = ({
 
         if (!response.ok) {
           const retryable = RETRYABLE_STATUS_CODES.has(response.status);
-          if (retryable && attempts < maxRetries) {
-            attempts += 1;
+          if (retryable && retries < maxRetries) {
+            retries += 1;
             if (retryDelayMs > 0) await wait(retryDelayMs);
             continue;
           }
@@ -87,14 +87,14 @@ const createLibreTranslateClient = ({
 
         const payload = await response.json();
         if (typeof payload?.translatedText !== "string") {
-          throw new EmailTranslationError("Invalid translation response");
+          throw new EmailTranslationError("Translation response missing required translatedText field");
         }
         return payload.translatedText;
       } catch (error) {
         clearTimeout(timeout);
         const retryable = isRetryableError(error);
-        if (retryable && attempts < maxRetries) {
-          attempts += 1;
+        if (retryable && retries < maxRetries) {
+          retries += 1;
           if (retryDelayMs > 0) await wait(retryDelayMs);
           continue;
         }
@@ -106,10 +106,6 @@ const createLibreTranslateClient = ({
         });
       }
     }
-
-    throw new EmailTranslationError("Translation request failed", {
-      retryable: true
-    });
   };
 
   return {

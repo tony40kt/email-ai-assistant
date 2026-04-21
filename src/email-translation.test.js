@@ -97,6 +97,25 @@ test("libre translate client calls endpoint with english to traditional chinese 
   assert.equal(payload.api_key, "k1");
 });
 
+test("libre translate client omits api key when not provided", async () => {
+  let payload;
+  const client = createLibreTranslateClient({
+    apiUrl: "https://example.com/translate",
+    fetchImpl: async (_url, options) => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        payload = JSON.parse(options.body);
+        return { translatedText: "你好" };
+      }
+    })
+  });
+
+  const result = await client.translateEnglishToTraditionalChinese("Hello");
+  assert.equal(result, "你好");
+  assert.equal(Object.hasOwn(payload, "api_key"), false);
+});
+
 test("libre translate client retries timeout-like errors and succeeds", async () => {
   let calls = 0;
   const client = createLibreTranslateClient({
