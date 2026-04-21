@@ -42,6 +42,16 @@ jobs:
                 .map((x) => x.trim().toLowerCase())
                 .filter(Boolean)
             );
+            const formatZhTwDateTime = (value = new Date()) => new Intl.DateTimeFormat("zh-TW", {
+              timeZone: "Asia/Taipei",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false
+            }).format(value);
 
             core.info(`[debug] event=${context.eventName} action=${context.payload.action || "n/a"} issue=${issueNumber} actor=${actorLogin}`);
             core.info(`[debug] autoImplementLabel=${autoImplementLabel} copilotAssignee=${copilotAssignee}`);
@@ -134,10 +144,11 @@ jobs:
               const body = [
                 marker,
                 "Copilot auto-implement workflow 已觸發：",
-                `- AUTO_IMPLEMENT_LABEL: \`${autoImplementLabel}\``,
-                `- Trigger actor: @${actorLogin}`,
-                `- Assignee target: @${copilotAssignee}`,
-                `- Assignee verification: ${assigneeVerified ? "✅ confirmed" : "⚠️ pending / failed"}`,
+                `- 自動實作標籤：\`${autoImplementLabel}\``,
+                `- 觸發者：@${actorLogin}`,
+                `- 指派目標：@${copilotAssignee}`,
+                `- 指派驗證：${assigneeVerified ? "✅ 已確認" : "⚠️ 待確認或失敗"}`,
+                `- 觸發時間（台北時間）：${formatZhTwDateTime()}`,
                 "- 下一步：請確認 Copilot 是否回覆接單，並觀察是否建立關聯 PR。",
                 "- 注意：Workflow 可做到可靠觸發/驗證/監控，但無法 100% 保證 Copilot 內部行為。"
               ].join("\n");

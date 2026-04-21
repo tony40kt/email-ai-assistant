@@ -48,6 +48,22 @@ const normalizeTimestamp = (value) => {
   return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
 };
 
+const hasAnyCondition = (conditions = {}) => (
+  toLowerTokens(conditions.from ?? conditions.sender).length > 0
+  || toLowerTokens(conditions.to ?? conditions.recipient).length > 0
+  || toLowerTokens(conditions.keyword ?? conditions.keywords).length > 0
+  || toLowerTokens(conditions.subject).length > 0
+  || toLowerTokens(conditions.body).length > 0
+);
+
+const resolveRecipients = (email) => {
+  if (Array.isArray(email?.to)) return email.to;
+  if (isNonEmptyString(email?.to)) return [email.to];
+  if (Array.isArray(email?.recipients)) return email.recipients;
+  if (isNonEmptyString(email?.recipients)) return [email.recipients];
+  return [];
+};
+
 const normalizeBooleanLike = (value) => {
   if (value === true || value === false) return value;
   if (typeof value === 'number') {
@@ -79,6 +95,11 @@ const readConditionMatches = (email, conditions) => {
 
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
+  if (!hasAnyCondition(conditions)) return false;
+  const sender = isNonEmptyString(email?.from)
+    ? email.from
+    : (isNonEmptyString(email?.sender) ? email.sender : '');
+  const recipients = resolveRecipients(email);
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
   const body = isNonEmptyString(email?.body) ? email.body : '';
   const combined = `${subject}\n${body}`;
@@ -89,8 +110,8 @@ const ruleMatches = (email, rule) => {
   const subjectTokens = toLowerTokens(conditions.subject);
   const bodyTokens = toLowerTokens(conditions.body);
 
-  return containsAny(email?.from, fromTokens)
-    && recipientsContainAny(email?.to, toTokens)
+  return containsAny(sender, fromTokens)
+    && recipientsContainAny(recipients, toTokens)
     && containsAny(combined, keywordTokens)
     && containsAny(subject, subjectTokens)
     && containsAny(body, bodyTokens)
