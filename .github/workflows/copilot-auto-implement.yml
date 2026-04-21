@@ -1,166 +1,158 @@
-name: Copilot Auto Implement
+name: Copilot Auto Implement - Issue Trigger
 
 on:
   issues:
     types: [opened, reopened, edited, labeled]
-  workflow_dispatch:
-    inputs:
-      backfill:
-        description: "Assign Copilot to open auto:implement issues that do not already have Copilot"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   issues: write
   pull-requests: read
+  contents: read
 
 concurrency:
-  group: copilot-auto-implement-${{ github.event.issue.number || github.run_id }}
+  group: copilot-auto-implement-issue-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  issue-auto-implement:
-    if: github.event_name == 'issues'
+  route-auto-implement-issue:
     runs-on: ubuntu-latest
     env:
-      AUTO_IMPLEMENT_LABEL: auto:implement
+      AUTO_IMPLEMENT_LABEL: ${{ vars.AUTO_IMPLEMENT_LABEL || 'auto:implement' }}
+      COPILOT_ASSIGNEE: ${{ vars.COPILOT_ASSIGNEE || 'copilot' }}
+      TRUSTED_AUTOMATION_ACTORS: ${{ vars.TRUSTED_AUTOMATION_ACTORS || 'github-actions[bot],copilot' }}
+      MARKER: "<!-- copilot-auto-implement:managed -->"
     steps:
-      - name: Route auto:implement issue to Copilot safely
+      - name: Validate, assign Copilot, and add dedup marker
         uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue = context.payload.issue;
-            const issue_number = issue.number;
-            const actorLogin = context.payload.sender?.login || "";
-            const actor = actorLogin.toLowerCase();
+            const issueNumber = issue?.number;
+            const actorLogin = context.payload.sender?.login || context.actor || "";
+            const actorLower = actorLogin.toLowerCase();
             const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
-            const labels = (issue.labels || []).map((l) => l.name);
+            const copilotAssignee = (process.env.COPILOT_ASSIGNEE || "copilot").toLowerCase();
+            const marker = process.env.MARKER || "<!-- copilot-auto-implement:managed -->";
+            const trustedPermissions = new Set(["admin", "maintain", "write"]);
+            const trustedAutomationActors = new Set(
+              (process.env.TRUSTED_AUTOMATION_ACTORS || "github-actions[bot],copilot")
+                .split(",")
+                .map((x) => x.trim().toLowerCase())
+                .filter(Boolean)
+            );
+
+            core.info(`[debug] event=${context.eventName} action=${context.payload.action || "n/a"} issue=${issueNumber} actor=${actorLogin}`);
+            core.info(`[debug] autoImplementLabel=${autoImplementLabel} copilotAssignee=${copilotAssignee}`);
+
+            if (!issueNumber) {
+              core.warning("No issue found in payload. Skipping.");
+              return;
+            }
 
             if (issue.state !== "open") {
-              core.info(`Issue #${issue_number} is not open. Skipping.`);
+              core.info(`Issue #${issueNumber} is not open (state=${issue.state}). Skipping.`);
               return;
             }
 
+            const labels = (issue.labels || []).map((l) => l.name);
             if (!labels.includes(autoImplementLabel)) {
-              core.info(`Issue #${issue_number} does not have ${autoImplementLabel}. Skipping.`);
+              core.info(`Issue #${issueNumber} does not have label '${autoImplementLabel}'. Skipping.`);
               return;
             }
 
-            const trustedActors = new Set(["github-actions[bot]", "copilot"]);
-            const trustedPermissions = new Set(["admin", "maintain", "write"]);
+            let trusted = trustedAutomationActors.has(actorLower);
+            let permissionLevel = "unknown";
 
-            let trusted = trustedActors.has(actor);
-            if (!trusted) {
+            if (!trusted && actorLogin) {
               try {
                 const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
                   owner,
                   repo,
                   username: actorLogin
                 });
-                trusted = trustedPermissions.has(data.permission);
+                permissionLevel = data?.permission || "unknown";
+                trusted = trustedPermissions.has(permissionLevel);
               } catch (error) {
-                core.info(`Could not resolve collaborator permission for ${actorLogin}: ${error.message}`);
+                core.warning(`Unable to resolve collaborator permission for '${actorLogin}': ${error.message}`);
               }
             }
 
+            core.info(`[debug] actorTrusted=${trusted} permissionLevel=${permissionLevel}`);
             if (!trusted) {
-              core.warning(`Actor ${actorLogin} is not trusted (requires admin/maintain/write or trusted automation actor). Skipping automation for issue #${issue_number}.`);
+              core.warning(`Actor '${actorLogin}' is not trusted. Allowed: admin/maintain/write or trusted automation actors.`);
               return;
             }
 
-            const issueAssignees = (issue.assignees || []).map((a) => a.login.toLowerCase());
-            if (!issueAssignees.includes("copilot")) {
+            let latestIssue = issue;
+            const alreadyAssigned = (issue.assignees || []).some((a) => (a.login || "").toLowerCase() === copilotAssignee);
+
+            if (!alreadyAssigned) {
               try {
                 await github.rest.issues.addAssignees({
                   owner,
                   repo,
-                  issue_number,
-                  assignees: ["copilot"]
+                  issue_number: issueNumber,
+                  assignees: [copilotAssignee]
                 });
-                core.info(`Assigned Copilot to issue #${issue_number}.`);
+                core.info(`Requested assignment for '${copilotAssignee}' on issue #${issueNumber}.`);
               } catch (error) {
-                core.warning(`Unable to assign Copilot on issue #${issue_number}: ${error.message}`);
+                core.warning(`Failed to assign '${copilotAssignee}' on issue #${issueNumber}: ${error.message}`);
               }
             } else {
-              core.info(`Copilot already assigned on issue #${issue_number}.`);
+              core.info(`Issue #${issueNumber} already has '${copilotAssignee}' assignee.`);
             }
 
-            const marker = "<!-- copilot-auto-implement -->";
-            const comments = await github.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number,
-              per_page: 100
-            });
-            const alreadyCommented = comments.data.some((c) => (c.body || "").includes(marker));
-            if (!alreadyCommented) {
-              await github.rest.issues.createComment({
+            try {
+              const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+              latestIssue = data;
+            } catch (error) {
+              core.warning(`Failed to re-fetch issue #${issueNumber} for assignee verification: ${error.message}`);
+            }
+
+            const verifiedAssignees = (latestIssue.assignees || []).map((a) => (a.login || "").toLowerCase());
+            const assigneeVerified = verifiedAssignees.includes(copilotAssignee);
+            core.info(`[debug] assigneeVerified=${assigneeVerified} assignees=${verifiedAssignees.join(",") || "(none)"}`);
+
+            let comments = [];
+            try {
+              comments = await github.paginate(github.rest.issues.listComments, {
                 owner,
                 repo,
-                issue_number,
-                body: [
-                  marker,
-                  "Copilot auto-implement is enabled / 已啟用：",
-                  "- Confirmed `auto:implement` label",
-                  "- Attempted to assign Copilot agent",
-                  "- Copilot will create a related PR from this issue",
-                  "- 已確認 `auto:implement` label",
-                  "- 已嘗試指派 Copilot 代理",
-                  "- Copilot 會依 Issue 內容建立對應 PR"
-                ].join("\n")
+                issue_number: issueNumber,
+                per_page: 100
               });
+            } catch (error) {
+              core.warning(`Failed to list comments for #${issueNumber}: ${error.message}`);
             }
 
-  backfill-auto-implement:
-    if: github.event_name == 'workflow_dispatch' && inputs.backfill == true
-    runs-on: ubuntu-latest
-    env:
-      AUTO_IMPLEMENT_LABEL: auto:implement
-    steps:
-      - name: Backfill Copilot assignee for open auto:implement issues
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const autoImplementLabel = process.env.AUTO_IMPLEMENT_LABEL || "auto:implement";
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
-              owner,
-              repo,
-              state: "open",
-              labels: autoImplementLabel,
-              per_page: 100
-            });
+            const markerExists = comments.some((comment) => (comment.body || "").includes(marker));
+            core.info(`[debug] markerExists=${markerExists} marker=${marker}`);
 
-            let assigned = 0;
-            let skipped = 0;
-
-            for (const issue of issues) {
-              if (issue.pull_request) {
-                skipped += 1;
-                continue;
-              }
-
-              const assignees = (issue.assignees || []).map((a) => a.login.toLowerCase());
-              if (assignees.includes("copilot")) {
-                skipped += 1;
-                continue;
-              }
+            if (!markerExists) {
+              const body = [
+                marker,
+                "Copilot auto-implement workflow 已觸發：",
+                `- AUTO_IMPLEMENT_LABEL: \`${autoImplementLabel}\``,
+                `- Trigger actor: @${actorLogin}`,
+                `- Assignee target: @${copilotAssignee}`,
+                `- Assignee verification: ${assigneeVerified ? "✅ confirmed" : "⚠️ pending / failed"}`,
+                "- 下一步：請確認 Copilot 是否回覆接單，並觀察是否建立關聯 PR。",
+                "- 注意：Workflow 可做到可靠觸發/驗證/監控，但無法 100% 保證 Copilot 內部行為。"
+              ].join("\n");
 
               try {
-                await github.rest.issues.addAssignees({
+                await github.rest.issues.createComment({
                   owner,
                   repo,
-                  issue_number: issue.number,
-                  assignees: ["copilot"]
+                  issue_number: issueNumber,
+                  body
                 });
-                assigned += 1;
+                core.info(`Created marker comment for issue #${issueNumber}.`);
               } catch (error) {
-                core.warning(`Failed to assign Copilot on #${issue.number}: ${error.message}`);
+                core.warning(`Failed to create marker comment on #${issueNumber}: ${error.message}`);
               }
+            } else {
+              core.info(`Marker comment already exists on #${issueNumber}.`);
             }
-
-            core.info(`Backfill complete. Assigned=${assigned}, Skipped=${skipped}.`);

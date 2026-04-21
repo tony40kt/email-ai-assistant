@@ -73,8 +73,9 @@
 - `.github/ISSUE_TEMPLATE/*.yml`：可直接在 GitHub 網頁新增 Issue 的表單
 - `.github/workflows/issue-automation.yml`：Issue 自動處理流程（標籤、優先級、檢查提示）
 - `.github/workflows/bootstrap-issues.yml`：一鍵解析 `docs/ISSUES_DESIGN.md` 並建立對應的全套 Issues
-- `.github/workflows/copilot-auto-implement.yml`：Issue 具備 `auto:implement` 後自動指派 Copilot（由 Copilot cloud agent 產生實作 PR，含 backfill 補填機制與防護）
-- `.github/workflows/sync-linked-issue-status.yml`：PR 建立/更新時同步 linked issues 的 Project Status 為 `In Progress`
+- `.github/workflows/copilot-auto-implement.yml`：Issue 觸發器（檢查 `auto:implement`、驗證 actor 權限、去重 marker、指派與驗證 Copilot assignee）
+- `.github/workflows/copilot-auto-implement-monitor.yml`：Monitor / Backfill（手動 `workflow_dispatch` 為主，schedule 預設關閉；補齊 assignee/marker、偵測久未出現 PR 的告警）
+- `.github/workflows/sync-linked-issue-status.yml`：PR Sync（驗證 PR 與 `auto:implement` issue 關聯、同步 Issue 留言與 Project Status）
 
 ### 5.1 技術棧基線（免費資源優先）
 
@@ -128,6 +129,76 @@
    - 關聯 Issue 已標註
    - 敏感資訊未進版控
    - 文件有同步更新（若流程/設定有改動）
+
+### 5.5 `auto:implement` 使用方式
+
+1. 建立或選擇一張 **open** 的 Issue。
+2. 加上 `auto:implement` label（可透過 repo variable `AUTO_IMPLEMENT_LABEL` 自訂）。
+3. 觸發 `copilot-auto-implement.yml`：
+   - 驗證觸發者是否為可信 actor（`admin/maintain/write` 或可信自動化帳號）
+   - 指派 Copilot assignee（已存在則跳過）
+   - 留下去重 marker comment（已存在則跳過）
+   - 重新讀取 issue 驗證 assignee 是否成功
+4. 之後由 `sync-linked-issue-status.yml` 在 PR 事件中做關聯驗證與狀態同步。
+
+### 5.6 Monitor / Backfill（手動補跑）
+
+- Workflow：`.github/workflows/copilot-auto-implement-monitor.yml`
+- 觸發方式：`workflow_dispatch`（預設主流程）
+- 輸入參數：
+  - `dry_run`：只檢查不寫入
+  - `stale_days_without_pr`：超過 N 天無 linked PR 時留言警示
+  - `max_issues`：掃描上限
+- Schedule 為可選機制，需設定 repository variable `AUTO_IMPLEMENT_MONITOR_SCHEDULE_ENABLED=true` 才會啟用；預設關閉。
+
+### 5.7 Debug / 排查重點
+
+- 先看 `copilot-auto-implement.yml` log：
+  - 是否 `Issue is open`
+  - 是否偵測到 `AUTO_IMPLEMENT_LABEL`
+  - actor 是否 trusted
+  - assignee verification 是否 `confirmed`
+  - marker 是否已存在（去重）
+- 若長時間無 PR，手動執行 monitor/backfill：
+  - 看是否補上 assignee / marker
+  - 看是否出現 monitor warning comment
+- PR 建立後看 `sync-linked-issue-status.yml`：
+  - 是否辨識到 linked auto:implement issue
+  - 是否成功寫入同步留言
+  - 是否成功更新 Project Status
+
+### 5.8 可驗證 vs 無法保證
+
+- 可驗證：
+  - 觸發條件（open issue + label）
+  - actor 權限檢查
+  - assignee API 呼叫與回讀驗證
+  - marker 去重
+  - linked PR 偵測與狀態同步
+  - backfill 補跑與告警留言
+- 無法保證（需明確接受）：
+  - Copilot cloud agent 是否一定接單
+  - Copilot 是否一定會建立 PR
+  - PR 建立時機與內容品質
+
+### 5.9 測試案例與範例驗證
+
+建議至少驗證以下案例：
+
+1. 正常流程：trusted actor + `auto:implement` label，應完成 assignee + marker。
+2. 無 label：應直接 skip。
+3. 無權限 actor：應 skip 並記錄 warning。
+4. 已有 assignee：不重複指派。
+5. marker 已存在：不重複留言。
+6. backfill：可補齊缺少 assignee/marker 的 open issue。
+7. PR sync：linked PR 事件應回寫 issue 同步留言與（可用時）project status。
+8. API 失敗：單一 issue 失敗不應中止整批 monitor/backfill。
+
+範例 issue（可手動建立）：
+
+- Title: `[task] #demo auto implement pipeline`
+- Labels: `type:task`, `priority:P2`, `area:workflow`, `auto:implement`
+- Body: 含 checklist 與 DoD，並要求 Copilot 實作可驗證的小改動。
 
 ## 6. 給「只用 GitHub 網頁版」的操作步驟
 
