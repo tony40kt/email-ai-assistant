@@ -10,6 +10,7 @@
 - [安全與隱私原則](#7-安全與隱私原則)
 - [常見問題與排錯指南（FAQ）](#8-常見問題與排錯指南faq)
 - [目前狀態](#9-目前狀態)
+- [快速啟動](#10-快速啟動開發環境)
 
 ## 1. 專案定位
 
@@ -271,8 +272,94 @@
 
 - ✅ 需求盤點完成
 - ✅ README 與 Issue/Workflow 設計完成
-- ✅ `src/mail-sync.js` 已提供郵件欄位模型轉換、分頁/增量同步與重試錯誤流程
-- ⏳ 下一步：依 `docs/ISSUES_DESIGN.md` 逐張開 Issue 並開始開發
+- ✅ 後端業務邏輯全部完成（`src/`，43 個測試全通過）
+- ✅ 後端 API 伺服器完成（`api/`，Express + Gmail OAuth + Supabase）
+- ✅ 資料庫 Schema 完成（`supabase/schema.sql`）
+- ✅ iOS App 完成（`mobile/`，React Native + Expo）
+- ⏳ 下一步：填入真實的 Supabase、Gmail OAuth 憑證後即可啟動
+
+## 10. 快速啟動（開發環境）
+
+### 前置條件
+
+1. [Node.js 20+](https://nodejs.org)
+2. [Supabase 帳號](https://supabase.com)（免費層即可）
+3. [Google Cloud Console](https://console.cloud.google.com)（建立 OAuth 2.0 Client ID）
+4. [Expo Go App](https://expo.dev/go)（裝在 iPhone 上）
+
+### 步驟 1：設定 Supabase 資料庫
+
+1. 登入 Supabase，建立新專案
+2. 到「SQL Editor」，貼上並執行 `supabase/schema.sql` 全部內容
+3. 記下「Settings > API」中的 **Project URL** 與 **anon key / service_role key**
+
+### 步驟 2：取得 Gmail OAuth 憑證
+
+1. 前往 [Google Cloud Console](https://console.cloud.google.com) > API 和服務 > 憑證
+2. 建立「OAuth 2.0 用戶端 ID」，類型選「網頁應用程式」
+3. 「已授權的重新導向 URI」加入：`http://localhost:3000/api/auth/callback`
+4. 記下 **Client ID** 與 **Client Secret**
+
+### 步驟 3：設定環境變數
+
+```bash
+# 複製範本
+cp .env.example .env
+```
+
+編輯 `.env` 填入各項值：
+
+```env
+NODE_ENV=development
+APP_BASE_URL=http://localhost:19006
+API_BASE_URL=http://localhost:3000
+
+GMAIL_CLIENT_ID=你的_client_id
+GMAIL_CLIENT_SECRET=你的_client_secret
+GMAIL_REDIRECT_URI=http://localhost:3000/api/auth/callback
+
+SUPABASE_URL=https://你的專案.supabase.co
+SUPABASE_ANON_KEY=你的_anon_key
+SUPABASE_SERVICE_ROLE_KEY=你的_service_role_key
+
+LIBRETRANSLATE_API_URL=https://libretranslate.com/translate
+LIBRETRANSLATE_API_KEY=（可選）
+```
+
+### 步驟 4：啟動後端 API
+
+```bash
+cd api
+npm install
+npm start
+# API 啟動於 http://localhost:3000
+```
+
+### 步驟 5：啟動 iOS App
+
+```bash
+cd mobile
+npm install
+# 設定 App 用的環境變數（新增 mobile/.env）
+echo "EXPO_PUBLIC_API_BASE_URL=http://你的電腦IP:3000" > .env
+echo "EXPO_PUBLIC_SUPABASE_URL=https://你的專案.supabase.co" >> .env
+echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=你的_anon_key" >> .env
+npm start
+```
+
+用手機上的 Expo Go 掃描 QR code 即可預覽。
+
+### 步驟 6：執行測試（業務邏輯）
+
+```bash
+# 在根目錄
+npm test
+# 43 個測試全部通過
+```
+
+## 11. 授權
+
+MIT License
 
 ## 10. 授權
 
