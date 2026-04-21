@@ -61,6 +61,16 @@ test("mapEmailModel supports single and object recipient inputs", () => {
     }).recipients,
     ["obj@example.com"]
   );
+
+  assert.deepEqual(
+    mapEmailModel({
+      id: "m4",
+      sender: "sender@example.com",
+      recipient: "single-alias@example.com",
+      subject: "single alias"
+    }).recipients,
+    ["single-alias@example.com"]
+  );
 });
 
 test("syncEmails supports pagination and incremental sync token updates", async () => {
@@ -123,6 +133,28 @@ test("syncEmails retries retryable errors and returns retryable message when exh
   );
 
   assert.equal(callCount, 2);
+});
+
+test("syncEmails retries retryable http status errors and succeeds", async () => {
+  const storage = createMemoryStorage();
+  let callCount = 0;
+
+  const result = await syncEmails({
+    fetchPage: async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        const error = new Error("service unavailable");
+        error.status = 503;
+        throw error;
+      }
+      return { emails: [], nextCursor: null, syncToken: "sync-v1" };
+    },
+    storage,
+    maxRetries: 1
+  });
+
+  assert.equal(callCount, 2);
+  assert.equal(result.lastSyncToken, "sync-v1");
 });
 
 test("syncEmails persists lastSyncedAt fallback when syncToken is absent", async () => {

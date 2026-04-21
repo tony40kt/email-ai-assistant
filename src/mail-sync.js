@@ -4,6 +4,7 @@ const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_MAX_PAGES_PER_SYNC = 4;
 const DEFAULT_MAX_RETRIES = 2;
 const RETRYABLE_ERROR_CODES = new Set(["ETIMEDOUT", "ECONNRESET"]);
+const RETRYABLE_ERROR_STATUSES = new Set([429]);
 const DEFAULT_SYNC_ERROR_MESSAGE = "同步失敗，請檢查網路後重試。";
 
 class MailSyncError extends Error {
@@ -36,13 +37,18 @@ const normalizeRecipient = (recipient) => {
 const mapEmailModel = (source = {}) => ({
   id: String(source.id || ""),
   sender: String(source.sender || source.from || ""),
-  recipients: asArray(source.recipients || source.to).map(normalizeRecipient).filter(Boolean),
+  recipients: asArray(source.recipients || source.to || source.recipient).map(normalizeRecipient).filter(Boolean),
   subject: String(source.subject || ""),
   isRead: Boolean(source.isRead ?? source.read),
   receivedAt: source.receivedAt || source.date || null
 });
 
-const isRetryableError = (error) => Boolean(error && (error.retryable || RETRYABLE_ERROR_CODES.has(error.code)));
+const isRetryableStatus = (status) => status >= 500 || RETRYABLE_ERROR_STATUSES.has(status);
+const isRetryableError = (error) => Boolean(error && (
+  error.retryable
+  || RETRYABLE_ERROR_CODES.has(error.code)
+  || isRetryableStatus(error.status || 0)
+));
 const hasRequiredStorageMethods = (storage) => (
   storage
   && typeof storage.loadState === "function"
