@@ -15,8 +15,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── 中介軟體 ──────────────────────────────────────────────
+const allowedOrigin = process.env.APP_BASE_URL;
 app.use(cors({
-  origin: process.env.APP_BASE_URL || '*',
+  origin: allowedOrigin || false,   // 若未設定，不允許跨域請求
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

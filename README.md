@@ -360,7 +360,3 @@ npm test
 ## 11. 授權
 
 MIT License
-
-## 10. 授權
-
-建議使用 MIT License（可後續新增 `LICENSE` 檔案）。
