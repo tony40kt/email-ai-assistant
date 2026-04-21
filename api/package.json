@@ -1,0 +1,18 @@
+{
+  "name": "email-ai-assistant-api",
+  "version": "1.0.0",
+  "description": "Email AI Assistant — 後端 API 伺服器",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "googleapis": "^171.4.0"
+  }
+}
