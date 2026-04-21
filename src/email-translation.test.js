@@ -163,3 +163,25 @@ test("libre translate client throws user-safe error when retries are exhausted",
     }
   );
 });
+
+test("libre translate client throws when retry loop exits without attempts", async () => {
+  const client = createLibreTranslateClient({
+    apiUrl: "https://example.com/translate",
+    maxRetries: -1,
+    retryDelayMs: 0,
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ translatedText: "不會到達" })
+    })
+  });
+
+  await assert.rejects(
+    () => client.translateEnglishToTraditionalChinese("Hello"),
+    (error) => {
+      assert.equal(error instanceof EmailTranslationError, true);
+      assert.equal(error.retryable, false);
+      return true;
+    }
+  );
+});

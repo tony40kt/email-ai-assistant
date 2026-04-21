@@ -36,6 +36,65 @@ test('matches multi-condition rules and applies labels', () => {
   assert.equal(result.trace.winningRuleId, 'billing');
 });
 
+test('matches rules against sender/recipients aliases from mail model', () => {
+  const email = {
+    sender: 'alerts@bank.com',
+    recipients: ['me@example.com'],
+    subject: 'Payment reminder',
+    body: 'Your invoice is due tomorrow.',
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'billing',
+      name: '帳務提醒',
+      priority: 2,
+      conditions: {
+        from: 'bank.com',
+        to: 'me@example.com',
+        keyword: 'invoice'
+      },
+      labels: ['Finance']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'billing');
+  assert.deepEqual(result.email.labels, ['Finance']);
+  assert.deepEqual(result.trace.matchedRuleIds, ['billing']);
+});
+
+test('matches rules when recipient condition uses recipients alias', () => {
+  const email = {
+    from: 'alerts@bank.com',
+    recipients: ['me@example.com'],
+    subject: 'Payment reminder',
+    body: 'Your invoice is due tomorrow.',
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'billing',
+      name: '帳務提醒',
+      priority: 2,
+      conditions: {
+        from: 'bank.com',
+        recipients: 'me@example.com',
+        keyword: 'invoice'
+      },
+      labels: ['Finance']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'billing');
+  assert.deepEqual(result.email.labels, ['Finance']);
+});
+
 test('resolves conflicts by priority then createdAt', () => {
   const email = {
     from: 'service@vendor.com',
@@ -338,4 +397,29 @@ test('does not match rules that have no effective conditions', () => {
   assert.equal(result.winningRule, null);
   assert.deepEqual(result.email.labels, ['Keep']);
   assert.deepEqual(result.trace.matchedRuleIds, []);
+});
+
+test('matches rules that only specify isRead condition', () => {
+  const email = {
+    from: 'alerts@bank.com',
+    subject: 'Status update',
+    body: 'No keyword needed',
+    isRead: true,
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'read-only-condition',
+      name: '僅已讀條件',
+      priority: 1,
+      conditions: { isRead: true },
+      labels: ['ReadOnly']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'read-only-condition');
+  assert.deepEqual(result.email.classification.appliedLabels, ['ReadOnly']);
 });

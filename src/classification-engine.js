@@ -17,12 +17,22 @@ const toLowerTokens = (value) => toArray(value)
   .filter(isNonEmptyString)
   .map((item) => item.trim().toLowerCase());
 
+const getRecipientConditionValue = (conditions = {}) => (
+  conditions.to ?? conditions.recipients ?? conditions.recipient
+);
+
 const hasAnyCondition = (conditions = {}) => (
   toLowerTokens(conditions.from ?? conditions.sender).length > 0
-  || toLowerTokens(conditions.to ?? conditions.recipient).length > 0
+  || toLowerTokens(getRecipientConditionValue(conditions)).length > 0
   || toLowerTokens(conditions.keyword ?? conditions.keywords).length > 0
   || toLowerTokens(conditions.subject).length > 0
   || toLowerTokens(conditions.body).length > 0
+  || (
+    (conditions.isRead ?? conditions.read) !== undefined
+    && (conditions.isRead ?? conditions.read) !== null
+    && !(typeof (conditions.isRead ?? conditions.read) === 'string'
+      && (conditions.isRead ?? conditions.read).trim().length === 0)
+  )
 );
 
 const containsAny = (target, tokens) => {
@@ -56,6 +66,14 @@ const normalizeTimestamp = (value) => {
   return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
 };
 
+const resolveRecipients = (email) => {
+  if (Array.isArray(email?.to)) return email.to;
+  if (isNonEmptyString(email?.to)) return [email.to];
+  if (Array.isArray(email?.recipients)) return email.recipients;
+  if (isNonEmptyString(email?.recipients)) return [email.recipients];
+  return [];
+};
+
 const normalizeBooleanLike = (value) => {
   if (value === true || value === false) return value;
   if (typeof value === 'number') {
@@ -87,19 +105,23 @@ const readConditionMatches = (email, conditions) => {
 
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
+  const sender = isNonEmptyString(email?.from)
+    ? email.from
+    : (isNonEmptyString(email?.sender) ? email.sender : '');
+  const recipients = resolveRecipients(email);
   if (!hasAnyCondition(conditions)) return false;
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
   const body = isNonEmptyString(email?.body) ? email.body : '';
   const combined = `${subject}\n${body}`;
 
   const fromTokens = toLowerTokens(conditions.from ?? conditions.sender);
-  const toTokens = toLowerTokens(conditions.to ?? conditions.recipient);
+  const toTokens = toLowerTokens(getRecipientConditionValue(conditions));
   const keywordTokens = toLowerTokens(conditions.keyword ?? conditions.keywords);
   const subjectTokens = toLowerTokens(conditions.subject);
   const bodyTokens = toLowerTokens(conditions.body);
 
-  return containsAny(email?.from, fromTokens)
-    && recipientsContainAny(email?.to, toTokens)
+  return containsAny(sender, fromTokens)
+    && recipientsContainAny(recipients, toTokens)
     && containsAny(combined, keywordTokens)
     && containsAny(subject, subjectTokens)
     && containsAny(body, bodyTokens)
