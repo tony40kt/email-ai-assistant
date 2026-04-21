@@ -46,6 +46,8 @@ const normalizeTimestamp = (value) => {
 
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
+  const sender = isNonEmptyString(email?.from) ? email.from : email?.sender;
+  const recipients = email?.to ?? email?.recipients;
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
   const body = isNonEmptyString(email?.body) ? email.body : '';
   const combined = `${subject}\n${body}`;
@@ -56,8 +58,8 @@ const ruleMatches = (email, rule) => {
   const subjectTokens = toLowerTokens(conditions.subject);
   const bodyTokens = toLowerTokens(conditions.body);
 
-  return containsAny(email?.from, fromTokens)
-    && recipientsContainAny(email?.to, toTokens)
+  return containsAny(sender, fromTokens)
+    && recipientsContainAny(recipients, toTokens)
     && containsAny(combined, keywordTokens)
     && containsAny(subject, subjectTokens)
     && containsAny(body, bodyTokens);
