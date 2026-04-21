@@ -4,9 +4,9 @@ const REDACTED = "[REDACTED]";
 const SENSITIVE_KEY_PATTERN = /(token|secret|api[_-]?key|authorization|cookie|password)/i;
 const TOKEN_QUERY_PATTERN = /((?:access_token|refresh_token|token|api[_-]?key|client_secret)=)([^&\s]+)/gi;
 const BEARER_PATTERN = /Bearer\s+[^\s,;]+/gi;
-const EMAIL_PATTERN = /\b([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g;
+const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g;
 
-const maskEmail = (value) => value.replace(EMAIL_PATTERN, (_full, firstChar, domain) => `${firstChar}***${domain}`);
+const maskEmail = (value) => value.replace(EMAIL_PATTERN, (_full, domain) => `***${domain}`);
 
 const redactText = (value) => (
   maskEmail(
@@ -30,7 +30,7 @@ const sanitizeLogValue = (value, key = "") => {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeLogValue(item, key));
+    return value.map((item) => sanitizeLogValue(item));
   }
 
   if (typeof value === "object") {

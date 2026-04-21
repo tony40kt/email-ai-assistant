@@ -31,7 +31,7 @@ test("sanitizeLogValue masks emails and token-like string segments", () => {
   const sanitized = sanitizeLogValue(input);
 
   assert.equal(sanitized.includes("alice@example.com"), false);
-  assert.equal(sanitized.includes("a***@example.com"), true);
+  assert.equal(sanitized.includes("***@example.com"), true);
   assert.equal(sanitized.includes("Bearer [REDACTED]"), true);
   assert.equal(sanitized.includes("access_token=[REDACTED]"), true);
 });
@@ -46,4 +46,20 @@ test("sanitizeLogValue keeps non-sensitive values", () => {
   const sanitized = sanitizeLogValue(input);
 
   assert.deepEqual(sanitized, input);
+});
+
+test("sanitizeLogValue does not over-redact array items from parent key context", () => {
+  const sanitized = sanitizeLogValue({
+    events: [
+      { module: "sync" },
+      { accessToken: "abc" }
+    ]
+  });
+
+  assert.deepEqual(sanitized, {
+    events: [
+      { module: "sync" },
+      { accessToken: REDACTED }
+    ]
+  });
 });
