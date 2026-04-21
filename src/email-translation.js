@@ -107,6 +107,10 @@ const createLibreTranslateClient = ({
         });
       }
     }
+
+    throw new EmailTranslationError("Translation request failed", {
+      retryable: false
+    });
   };
 
   return {

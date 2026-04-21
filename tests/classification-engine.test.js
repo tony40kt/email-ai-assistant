@@ -66,6 +66,35 @@ test('matches rules against sender/recipients aliases from mail model', () => {
   assert.deepEqual(result.trace.matchedRuleIds, ['billing']);
 });
 
+test('matches rules when recipient condition uses recipients alias', () => {
+  const email = {
+    from: 'alerts@bank.com',
+    recipients: ['me@example.com'],
+    subject: 'Payment reminder',
+    body: 'Your invoice is due tomorrow.',
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'billing',
+      name: '帳務提醒',
+      priority: 2,
+      conditions: {
+        from: 'bank.com',
+        recipients: 'me@example.com',
+        keyword: 'invoice'
+      },
+      labels: ['Finance']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'billing');
+  assert.deepEqual(result.email.labels, ['Finance']);
+});
+
 test('resolves conflicts by priority then createdAt', () => {
   const email = {
     from: 'service@vendor.com',

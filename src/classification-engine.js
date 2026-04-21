@@ -17,9 +17,13 @@ const toLowerTokens = (value) => toArray(value)
   .filter(isNonEmptyString)
   .map((item) => item.trim().toLowerCase());
 
+const getRecipientConditionValue = (conditions = {}) => (
+  conditions.to ?? conditions.recipients ?? conditions.recipient
+);
+
 const hasAnyCondition = (conditions = {}) => (
   toLowerTokens(conditions.from ?? conditions.sender).length > 0
-  || toLowerTokens(conditions.to ?? conditions.recipient).length > 0
+  || toLowerTokens(getRecipientConditionValue(conditions)).length > 0
   || toLowerTokens(conditions.keyword ?? conditions.keywords).length > 0
   || toLowerTokens(conditions.subject).length > 0
   || toLowerTokens(conditions.body).length > 0
@@ -111,7 +115,7 @@ const ruleMatches = (email, rule) => {
   const combined = `${subject}\n${body}`;
 
   const fromTokens = toLowerTokens(conditions.from ?? conditions.sender);
-  const toTokens = toLowerTokens(conditions.to ?? conditions.recipient);
+  const toTokens = toLowerTokens(getRecipientConditionValue(conditions));
   const keywordTokens = toLowerTokens(conditions.keyword ?? conditions.keywords);
   const subjectTokens = toLowerTokens(conditions.subject);
   const bodyTokens = toLowerTokens(conditions.body);
