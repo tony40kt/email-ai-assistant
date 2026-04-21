@@ -33,6 +33,9 @@ test('matches multi-condition rules and applies labels', () => {
   assert.equal(result.winningRule.id, 'billing');
   assert.deepEqual(result.email.labels, ['Finance']);
   assert.deepEqual(result.trace.matchedRuleIds, ['billing']);
+  assert.deepEqual(result.trace.matchedRules, [
+    { id: 'billing', name: '帳務提醒', priority: 2 }
+  ]);
   assert.equal(result.trace.winningRuleId, 'billing');
 });
 
