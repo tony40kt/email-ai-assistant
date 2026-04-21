@@ -59,6 +59,16 @@ jobs:
             const warningMarker = process.env.WARNING_MARKER || "<!-- copilot-auto-implement:monitor-warning -->";
             const staleCheckEnabled = staleDays > 0;
             const staleMillis = staleCheckEnabled ? staleDays * 24 * 60 * 60 * 1000 : 0;
+            const formatZhTwDateTime = (value = new Date()) => new Intl.DateTimeFormat("zh-TW", {
+              timeZone: "Asia/Taipei",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false
+            }).format(value);
 
             core.info(`[debug] dryRun=${dryRun} staleDays=${staleDays} staleCheckEnabled=${staleCheckEnabled} maxIssues=${maxIssues}`);
             core.info(`[debug] autoImplementLabel=${autoImplementLabel} copilotAssignee=${copilotAssignee}`);
@@ -169,7 +179,8 @@ jobs:
                   const markerComment = [
                     marker,
                     "Monitor/backfill 已補跑 auto-implement 流程：",
-                    `- Assignee @${copilotAssignee}: ${hasCopilot ? "✅ present" : "⚠️ missing / pending"}`,
+                    `- 指派 @${copilotAssignee}：${hasCopilot ? "✅ 已存在" : "⚠️ 缺少或待確認"}`,
+                    `- 補跑時間（台北時間）：${formatZhTwDateTime()}`,
                     "- 此流程負責補齊觸發與驗證，無法 100% 保證 Copilot 內部接單。"
                   ].join("\n");
 
@@ -207,7 +218,8 @@ jobs:
                 if (staleCheckEnabled && linkedPrs.length === 0 && isStale && !hasWarning) {
                   const warningBody = [
                     warningMarker,
-                    `⚠️ Monitor warning: Issue 已超過 ${staleDays} 天仍未偵測到 linked PR。`,
+                    `⚠️ 監控提醒：Issue 已超過 ${staleDays} 天仍未偵測到關聯 PR。`,
+                    `- 通知時間（台北時間）：${formatZhTwDateTime()}`,
                     "- 建議檢查 Copilot 是否已接單、是否有 PR 草稿、或是否需要人工接手。"
                   ].join("\n");
 
