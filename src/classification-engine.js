@@ -182,6 +182,11 @@ function classifyEmail(email, rules) {
 
   const trace = {
     matchedRuleIds: matchedRules.map((rule) => rule.id).filter((id) => id !== undefined),
+    matchedRules: matchedRules.map((rule) => ({
+      id: rule.id ?? null,
+      name: rule.name ?? null,
+      priority: normalizePriority(rule.priority)
+    })),
     winningRuleId: winningRule?.id ?? null,
     winningRuleName: winningRule?.name ?? null
   };
