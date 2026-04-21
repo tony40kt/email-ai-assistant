@@ -1,0 +1,28 @@
+{
+  "name": "email-ai-assistant",
+  "version": "1.0.0",
+  "description": "> iOS 郵件整理應用專案（繁體中文 UI、以免費資源為優先）",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tony40kt/email-ai-assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tony40kt/email-ai-assistant/issues"
+  },
+  "homepage": "https://github.com/tony40kt/email-ai-assistant#readme",
+  "devDependencies": {
+    "jest": "^30.3.0"
+  }
+}
