@@ -44,10 +44,20 @@ const normalizeTimestamp = (value) => {
   return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
 };
 
+const resolveRecipients = (email) => {
+  if (Array.isArray(email?.to)) return email.to;
+  if (isNonEmptyString(email?.to)) return [email.to];
+  if (Array.isArray(email?.recipients)) return email.recipients;
+  if (isNonEmptyString(email?.recipients)) return [email.recipients];
+  return [];
+};
+
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
-  const sender = isNonEmptyString(email?.from) ? email.from : email?.sender;
-  const recipients = email?.to ?? email?.recipients;
+  const sender = isNonEmptyString(email?.from)
+    ? email.from
+    : (isNonEmptyString(email?.sender) ? email.sender : '');
+  const recipients = resolveRecipients(email);
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
   const body = isNonEmptyString(email?.body) ? email.body : '';
   const combined = `${subject}\n${body}`;
