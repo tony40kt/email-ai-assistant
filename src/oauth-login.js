@@ -65,7 +65,8 @@ const createSecureSessionStore = ({
 
   return {
     save: async ({ provider, accountEmail, grantedScopes = [], expiresAt } = {}) => {
-      const expiresAtMs = expiresAt ? Date.parse(expiresAt) : (now() + maxSessionTtlMs);
+      const parsedExpiresAt = expiresAt ? Date.parse(expiresAt) : Number.NaN;
+      const expiresAtMs = Number.isFinite(parsedExpiresAt) ? parsedExpiresAt : (now() + maxSessionTtlMs);
       const session = {
         provider: String(provider || ""),
         accountEmail: String(accountEmail || ""),
@@ -78,7 +79,13 @@ const createSecureSessionStore = ({
     load: async () => {
       const raw = await getItem.call(secureStore, storageKey);
       if (!raw) return null;
-      const session = JSON.parse(raw);
+      let session;
+      try {
+        session = JSON.parse(raw);
+      } catch {
+        await removeItem.call(secureStore, storageKey);
+        return null;
+      }
       const expiresAtMs = Date.parse(session.expiresAt);
       if (Number.isFinite(expiresAtMs) && expiresAtMs <= now()) {
         await removeItem.call(secureStore, storageKey);
@@ -178,7 +185,7 @@ const createOAuthService = ({
       const grantedScopes = normalizeScopes(exchanged.scope || exchanged.scopes);
 
       if (provider === "gmail" && !grantedScopes.includes(GMAIL_READONLY_SCOPE)) {
-        throw new Error("Gmail OAuth 缺少郵件讀取權限");
+        throw new Error(`Gmail OAuth 缺少郵件讀取權限：${GMAIL_READONLY_SCOPE}`);
       }
 
       if (typeof tokenVault.saveProviderToken === "function") {
@@ -200,13 +207,12 @@ const createOAuthService = ({
 
       logger.info("OAuth login success", {
         provider,
-        accountEmail: exchanged.accountEmail,
         grantedScopes
       });
 
       return {
         provider,
-        mailReadGranted: provider !== "gmail" || grantedScopes.includes(GMAIL_READONLY_SCOPE),
+        mailReadGranted: true,
         session
       };
     }

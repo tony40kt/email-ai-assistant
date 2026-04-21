@@ -43,7 +43,7 @@ test("google provider builds OAuth URL with required Gmail readonly scope", () =
   assert.deepEqual(scopes, DEFAULT_GMAIL_SCOPES);
 });
 
-test("oauth service exposes traditional chinese login content and outlook placeholder", async () => {
+test("oauth service exposes Traditional Chinese login content and outlook placeholder", async () => {
   const service = createOAuthService({
     providers: {
       gmail: createGoogleOAuthProvider({
@@ -120,7 +120,7 @@ test("completeLogin keeps refresh token out of frontend session and logs", async
   assert.equal(savedSession.accessToken, undefined);
   assert.equal(tokenVaultCalls[0].refreshToken, "refresh-123");
   assert.equal(logPayload.provider, "gmail");
-  assert.equal(logPayload.accountEmail, "user@example.com");
+  assert.equal(logPayload.accountEmail, undefined);
   assert.equal(logPayload.accessToken, undefined);
   assert.equal(logPayload.refreshToken, undefined);
 });
@@ -133,6 +133,7 @@ test("safe logger redacts sensitive token fields", () => {
 
   logger.info("test", {
     accessToken: "a",
+    clientSecret: "s",
     nested: {
       refreshToken: "b",
       authorizationCode: "c"
@@ -140,6 +141,7 @@ test("safe logger redacts sensitive token fields", () => {
   });
 
   assert.equal(calls[0].metadata.accessToken, "[REDACTED]");
+  assert.equal(calls[0].metadata.clientSecret, "[REDACTED]");
   assert.equal(calls[0].metadata.nested.refreshToken, "[REDACTED]");
   assert.equal(calls[0].metadata.nested.authorizationCode, "[REDACTED]");
 });
@@ -163,4 +165,33 @@ test("completeLogin rejects Gmail OAuth response without readonly mail scope", a
     () => service.completeLogin({ provider: "gmail", code: "oauth-code" }),
     /Gmail OAuth 缺少郵件讀取權限/
   );
+});
+
+test("secure session store falls back to default ttl when expiresAt is invalid", async () => {
+  let mockTimestampMs = 1000;
+  const store = createSecureSessionStore({
+    secureStore: createMemorySecureStore(),
+    maxSessionTtlMs: 5000,
+    now: () => mockTimestampMs
+  });
+
+  const session = await store.save({
+    provider: "gmail",
+    grantedScopes: [GMAIL_READONLY_SCOPE],
+    expiresAt: "invalid-date"
+  });
+
+  assert.equal(session.expiresAt, new Date(mockTimestampMs + 5000).toISOString());
+});
+
+test("secure session store clears corrupted persisted payload", async () => {
+  const secureStore = createMemorySecureStore();
+  await secureStore.setItemAsync("oauth.session", "not-json");
+  const store = createSecureSessionStore({ secureStore });
+
+  const loaded = await store.load();
+  const after = await secureStore.getItemAsync("oauth.session");
+
+  assert.equal(loaded, null);
+  assert.equal(after, null);
 });
