@@ -2,6 +2,10 @@
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const normalizeString = (value) => value.trim().toLowerCase();
+const TRUTHY_BOOLEAN_LIKE_VALUES = ['true', '1', 'yes'];
+const FALSY_BOOLEAN_LIKE_VALUES = ['false', '0', 'no'];
+const READ_STATE_TRUE_VALUES = ['read', '已讀'];
+const READ_STATE_FALSE_VALUES = ['unread', '未讀'];
 
 const toArray = (value) => {
   if (Array.isArray(value)) return value;
@@ -54,8 +58,8 @@ const normalizeBooleanLike = (value) => {
   if (!isNonEmptyString(value)) return null;
 
   const normalized = value.trim().toLowerCase();
-  if (['true', '1', 'yes', 'read', '已讀'].includes(normalized)) return true;
-  if (['false', '0', 'no', 'unread', '未讀'].includes(normalized)) return false;
+  if (TRUTHY_BOOLEAN_LIKE_VALUES.includes(normalized) || READ_STATE_TRUE_VALUES.includes(normalized)) return true;
+  if (FALSY_BOOLEAN_LIKE_VALUES.includes(normalized) || READ_STATE_FALSE_VALUES.includes(normalized)) return false;
   return null;
 };
 

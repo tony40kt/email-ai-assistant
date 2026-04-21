@@ -218,7 +218,7 @@ test('supports read/unread conditions for rule matching', () => {
       id: 'read-only',
       name: '已讀推送',
       priority: 0,
-      conditions: { from: 'shop.com', keyword: 'sale', read: true },
+      conditions: { from: 'shop.com', keyword: 'sale', isRead: true },
       labels: ['ReadAlert']
     },
     {
@@ -235,6 +235,54 @@ test('supports read/unread conditions for rule matching', () => {
 
   assert.equal(unreadResult.winningRule.id, 'unread-only');
   assert.equal(readResult.winningRule.id, 'read-only');
+});
+
+test('supports read condition alias for backward compatibility', () => {
+  const email = {
+    from: 'alerts@shop.com',
+    subject: 'Flash sale',
+    body: '50% off',
+    read: true,
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'read-alias',
+      name: '已讀別名',
+      priority: 1,
+      conditions: { from: 'shop.com', keyword: 'sale', read: 'read' },
+      labels: ['Alias']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'read-alias');
+});
+
+test('supports unread state with read condition alias', () => {
+  const email = {
+    from: 'alerts@shop.com',
+    subject: 'Flash sale',
+    body: '50% off',
+    read: false,
+    labels: []
+  };
+
+  const rules = [
+    {
+      id: 'unread-alias',
+      name: '未讀別名',
+      priority: 1,
+      conditions: { from: 'shop.com', keyword: 'sale', read: 'unread' },
+      labels: ['AliasUnread']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule.id, 'unread-alias');
 });
 
 test('clears previous auto labels when no rule matches', () => {
