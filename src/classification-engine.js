@@ -17,6 +17,14 @@ const toLowerTokens = (value) => toArray(value)
   .filter(isNonEmptyString)
   .map((item) => item.trim().toLowerCase());
 
+const hasAnyCondition = (conditions = {}) => (
+  toLowerTokens(conditions.from ?? conditions.sender).length > 0
+  || toLowerTokens(conditions.to ?? conditions.recipient).length > 0
+  || toLowerTokens(conditions.keyword ?? conditions.keywords).length > 0
+  || toLowerTokens(conditions.subject).length > 0
+  || toLowerTokens(conditions.body).length > 0
+);
+
 const containsAny = (target, tokens) => {
   if (!tokens.length) return true;
   if (!isNonEmptyString(target)) return false;
@@ -79,6 +87,7 @@ const readConditionMatches = (email, conditions) => {
 
 const ruleMatches = (email, rule) => {
   const conditions = rule?.conditions || {};
+  if (!hasAnyCondition(conditions)) return false;
   const subject = isNonEmptyString(email?.subject) ? email.subject : '';
   const body = isNonEmptyString(email?.body) ? email.body : '';
   const combined = `${subject}\n${body}`;

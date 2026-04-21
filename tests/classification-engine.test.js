@@ -314,3 +314,28 @@ test('clears previous auto labels when no rule matches', () => {
   assert.deepEqual(result.email.classification.appliedLabels, []);
   assert.equal(result.trace.winningRuleId, null);
 });
+
+test('does not match rules that have no effective conditions', () => {
+  const email = {
+    from: 'alerts@bank.com',
+    subject: 'Payment reminder',
+    body: 'invoice due',
+    labels: ['Keep']
+  };
+
+  const rules = [
+    {
+      id: 'empty-condition',
+      name: '空條件規則',
+      priority: 0,
+      conditions: {},
+      labels: ['AutoTag']
+    }
+  ];
+
+  const result = classifyEmail(email, rules);
+
+  assert.equal(result.winningRule, null);
+  assert.deepEqual(result.email.labels, ['Keep']);
+  assert.deepEqual(result.trace.matchedRuleIds, []);
+});
