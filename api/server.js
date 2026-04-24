@@ -16,8 +16,18 @@ const PORT = process.env.PORT || 3000;
 
 // ── 中介軟體 ──────────────────────────────────────────────
 const allowedOrigin = process.env.APP_BASE_URL;
+const isDev = process.env.NODE_ENV !== 'production';
 app.use(cors({
-  origin: allowedOrigin || false,   // 若未設定，不允許跨域請求
+  // 開發環境允許所有 localhost/127.0.0.1 請求；生產環境僅允許 APP_BASE_URL
+  origin: isDev
+    ? (origin, cb) => {
+        if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+          cb(null, true);
+        } else {
+          cb(null, allowedOrigin === origin);
+        }
+      }
+    : (allowedOrigin || false),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

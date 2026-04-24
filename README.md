@@ -286,82 +286,145 @@
 
 ## 10. 快速啟動（開發環境）
 
-### 前置條件
+> **給非工程師的提示**：每個步驟都有詳細說明，請依序完成。遇到問題請看 [FAQ](#8-常見問題與排錯指南faq)。
 
-1. [Node.js 20+](https://nodejs.org)
-2. [Supabase 帳號](https://supabase.com)（免費層即可）
-3. [Google Cloud Console](https://console.cloud.google.com)（建立 OAuth 2.0 Client ID）
-4. [Expo Go App](https://expo.dev/go)（裝在 iPhone 上）
+### 前置條件（先安裝這些工具）
 
-### 步驟 1：設定 Supabase 資料庫
+| 工具 | 下載網址 | 說明 |
+|------|----------|------|
+| Node.js 20+ | https://nodejs.org | 選「LTS」版本下載安裝 |
+| Expo Go App | https://expo.dev/go | 裝在你的 iPhone 上 |
+| （可選）VS Code | https://code.visualstudio.com | 用來編輯文字檔的工具 |
 
-1. 登入 Supabase，建立新專案
-2. 到「SQL Editor」，貼上並執行 `supabase/schema.sql` 全部內容
-3. 記下「Settings > API」中的 **Project URL** 與 **anon key / service_role key**
+---
 
-### 步驟 2：取得 Gmail OAuth 憑證
+### 步驟 A：建立 Supabase 資料庫（免費）
 
-1. 前往 [Google Cloud Console](https://console.cloud.google.com) > API 和服務 > 憑證
-2. 建立「OAuth 2.0 用戶端 ID」，類型選「網頁應用程式」
-3. 「已授權的重新導向 URI」加入：`http://localhost:3000/api/auth/callback`
-4. 記下 **Client ID** 與 **Client Secret**
+Supabase 是用來儲存你的規則、郵件資訊和帳號的資料庫服務。
 
-### 步驟 3：設定環境變數
+1. 前往 https://supabase.com，點 **Start for free**，用 GitHub 帳號登入
+2. 點 **New project**，填入專案名稱（例如 `email-assistant`），設定一個密碼，選離你近的伺服器位置（例如 **Northeast Asia (Tokyo)**），點 **Create new project**
+3. 等約 1 分鐘直到專案建立完成
+4. 點左側選單「**SQL Editor**」
+5. 點右上角 **New query**
+6. 打開本專案的 `supabase/schema.sql` 檔案，**全選（Ctrl+A / Cmd+A）複製**，貼到 SQL Editor 的文字框，點右上角 **Run**（應該看到 "Success. No rows returned"）
+7. **開啟匿名登入**：點左側選單「**Authentication**」→「**Providers**」→ 拉到最下方找到「**Anonymous Sign Ins**」→ 點右邊的開關讓它變成藍色開啟狀態 → 點 **Save**
+8. 取得你的金鑰：點左側選單「**Settings**」→「**API**」，記下這三個值：
+   - **Project URL**（例如 `https://abcxyz.supabase.co`）
+   - **anon public**（很長的一串字）
+   - **service_role secret**（點「Reveal」才看得到）
 
-```bash
-# 複製範本
-cp .env.example .env
-```
+---
 
-編輯 `.env` 填入各項值：
+### 步驟 B：建立 Gmail OAuth 憑證（免費）
+
+這讓你的 App 有權限讀取 Gmail 郵件。
+
+1. 前往 https://console.cloud.google.com，用你的 Google 帳號登入
+2. 點頂部「**選取專案**」→「**新增專案**」，取名後點**建立**
+3. 左側選單點「**API 和服務**」→「**程式庫**」，搜尋 **Gmail API**，點進去按**啟用**
+4. 返回「**API 和服務**」→「**OAuth 同意畫面**」：
+   - 選「**外部**」→ 點**建立**
+   - 填入應用程式名稱（例如「郵件 AI 助手」）、你的電子郵件 → 點**儲存並繼續**
+   - 範圍頁面：點**新增或移除範圍**，搜尋 `gmail.readonly`，勾選後**更新** → **儲存並繼續**
+   - 測試使用者：點**新增使用者**，填入你自己的 Gmail 地址 → **儲存並繼續**
+5. 左側點「**憑證**」→「**建立憑證**」→「**OAuth 2.0 用戶端 ID**」：
+   - 應用程式類型選「**iOS**」（這樣才能搭配 Expo Go 的深層連結）
+   - 套件 ID 填：`com.emailaiassistant.app`
+   - 點**建立**
+6. 記下產生的 **用戶端 ID** 與 **用戶端密鑰**
+
+---
+
+### 步驟 C：建立後端環境變數檔
+
+用文字編輯器（記事本或 VS Code）在專案根目錄建立一個名為 **`.env`** 的檔案（注意：前面有個點），內容如下（把尖括號內替換成你自己的值）：
 
 ```env
 NODE_ENV=development
 APP_BASE_URL=http://localhost:19006
 API_BASE_URL=http://localhost:3000
 
-GMAIL_CLIENT_ID=你的_client_id
-GMAIL_CLIENT_SECRET=你的_client_secret
-GMAIL_REDIRECT_URI=http://localhost:3000/api/auth/callback
+GMAIL_CLIENT_ID=<步驟B取得的用戶端ID>
+GMAIL_CLIENT_SECRET=<步驟B取得的用戶端密鑰>
+GMAIL_REDIRECT_URI=emailaiassistant://auth/callback
 
-SUPABASE_URL=https://你的專案.supabase.co
-SUPABASE_ANON_KEY=你的_anon_key
-SUPABASE_SERVICE_ROLE_KEY=你的_service_role_key
+SUPABASE_URL=<步驟A的Project URL>
+SUPABASE_ANON_KEY=<步驟A的anon public金鑰>
+SUPABASE_SERVICE_ROLE_KEY=<步驟A的service_role金鑰>
 
 LIBRETRANSLATE_API_URL=https://libretranslate.com/translate
-LIBRETRANSLATE_API_KEY=（可選）
+LIBRETRANSLATE_API_KEY=
 ```
 
-### 步驟 4：啟動後端 API
+> ⚠️ **重要**：`.env` 檔案包含機密資訊，絕對不要上傳到 GitHub。（`.gitignore` 已設定好會忽略它）
+
+---
+
+### 步驟 D：建立 App 環境變數檔
+
+同樣用文字編輯器，在 **`mobile/`** 資料夾內建立 **`.env`** 檔案，內容如下：
+
+```env
+EXPO_PUBLIC_API_BASE_URL=http://<你電腦的區域IP>:3000
+EXPO_PUBLIC_SUPABASE_URL=<步驟A的Project URL>
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<步驟A的anon public金鑰>
+```
+
+> 💡 **如何找你電腦的區域 IP？**
+> - **Mac**：打開「系統設定」→「Wi-Fi」→ 點目前連線的 Wi-Fi 名稱 → 找「IP 位址」（例如 `192.168.1.5`）
+> - **Windows**：在命令提示字元輸入 `ipconfig`，找「IPv4 位址」
+>
+> 你的手機和電腦必須連在同一個 Wi-Fi 網路，App 才能連到後端。
+
+---
+
+### 步驟 E：啟動後端 API 伺服器
+
+打開**終端機**（Mac 的 Terminal 或 Windows 的命令提示字元），輸入：
 
 ```bash
-cd api
+cd /你的專案路徑/api
 npm install
 npm start
-# API 啟動於 http://localhost:3000
 ```
 
-### 步驟 5：啟動 iOS App
+看到 `Email AI Assistant API 已啟動：http://localhost:3000` 代表成功。**保持這個視窗開著不要關閉。**
+
+---
+
+### 步驟 F：啟動 iOS App
+
+打開**另一個**終端機視窗，輸入：
 
 ```bash
-cd mobile
+cd /你的專案路徑/mobile
 npm install
-# 設定 App 用的環境變數（新增 mobile/.env）
-echo "EXPO_PUBLIC_API_BASE_URL=http://你的電腦IP:3000" > .env
-echo "EXPO_PUBLIC_SUPABASE_URL=https://你的專案.supabase.co" >> .env
-echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=你的_anon_key" >> .env
 npm start
 ```
 
-用手機上的 Expo Go 掃描 QR code 即可預覽。
+畫面上會出現一個 QR code。用你 iPhone 上的「**相機 App**」掃描這個 QR code，它會提示你用 **Expo Go** 開啟，點進去就可以看到 App 了！
 
-### 步驟 6：執行測試（業務邏輯）
+---
+
+### 步驟 G：執行單元測試（驗證業務邏輯）
 
 ```bash
 # 在根目錄
 npm test
 # 43 個測試全部通過
 ```
+
+---
+
+### 常見啟動問題
+
+| 症狀 | 原因 | 解法 |
+|------|------|------|
+| App 顯示「登入失敗」 | Supabase 匿名登入未開啟 | 回步驟 A 第 7 項開啟 |
+| App 顯示「Gmail 授權失敗」 | OAuth 設定有誤 | 確認步驟 B 的套件 ID 正確，且已加入測試使用者 |
+| App 無法連到後端 | IP 設定錯誤 | 確認 `mobile/.env` 的 IP 與後端 IP 一致，且同一 Wi-Fi |
+| 後端無法啟動 | 缺少 `.env` 或設定有誤 | 確認根目錄有 `.env` 且三個 SUPABASE 值都已填入 |
 
 ## 11. 授權
 
