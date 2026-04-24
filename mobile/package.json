@@ -1,7 +1,7 @@
 {
   "name": "email-ai-assistant-mobile",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "expo/AppEntry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
