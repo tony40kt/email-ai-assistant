@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "郵件 AI 助手",
+    "newArchEnabled": false,
     "slug": "email-ai-assistant",
     "version": "1.0.0",
     "orientation": "portrait",
